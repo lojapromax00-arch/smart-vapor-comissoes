@@ -1,0 +1,48 @@
+name: Deploy to Vercel
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Deploy to Vercel
+        id: deploy
+        run: |
+          DEPLOY_URL=$(vercel --prod --yes \
+            --token=${{ secrets.VERCEL_TOKEN }} \
+            --scope=loja-pro-max 2>&1 | tail -1)
+          echo "url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+          echo "Deployed to: $DEPLOY_URL"
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+
+      - name: Configure ANTHROPIC_API_KEY in Vercel
+        run: |
+          # Get project ID from .vercel/project.json created by deploy step
+          if [ -f .vercel/project.json ]; then
+            PROJECT_ID=$(node -e "console.log(require('./.vercel/project.json').projectId)")
+            echo "Project ID: $PROJECT_ID"
+            # Add env var via Vercel API
+            curl -s -X POST "https://api.vercel.com/v9/projects/${PROJECT_ID}/env?teamId=${{ secrets.VERCEL_ORG_ID }}" \
+              -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
+              -H "Content-Type: application/json" \
+              -d "{\"key\":\"ANTHROPIC_API_KEY\",\"value\":\"${{ secrets.ANTHROPIC_API_KEY }}\",\"type\":\"encrypted\",\"target\":[\"production\",\"preview\",\"development\"]}" \
+              -o /dev/null -w "Set ANTHROPIC_API_KEY: %{http_code}\n" || true
+          fi
+
+      - name: Final deploy (with env vars)
+        run: |
+          vercel --prod --yes \
+            --token=${{ secrets.VERCEL_TOKEN }} \
+            --scope=loja-pro-max
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
