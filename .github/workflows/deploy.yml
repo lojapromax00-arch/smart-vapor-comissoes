@@ -8,9 +8,6 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    env:
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
 
     steps:
       - uses: actions/checkout@v4
@@ -18,38 +15,39 @@ jobs:
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
 
-      - name: Deploy to Vercel (full output)
+      - name: First deploy (creates project)
         run: |
           set -e
-          echo ">>> Starting vercel deploy..."
           vercel \
             --prod \
             --yes \
-            --token="$VERCEL_TOKEN" \
-            --scope="loja-pro-max" \
-            --name="smart-vapor-comissoes"
-          echo ">>> Deploy done."
-          echo ">>> .vercel/project.json:"
-          cat .vercel/project.json 2>/dev/null || echo "not found"
+            --token="${{ secrets.VERCEL_TOKEN }}" \
+            --scope="loja-pro-max"
 
-      - name: Set ANTHROPIC_API_KEY + redeploy
+          echo "=== .vercel/project.json ==="
+          cat .vercel/project.json
+
+      - name: Set ANTHROPIC_API_KEY env var in Vercel
         run: |
           set -e
           PROJECT_ID=$(node -p "require('./.vercel/project.json').projectId")
-          echo "Project ID: $PROJECT_ID"
+          ORG_ID="${{ secrets.VERCEL_ORG_ID }}"
+          echo "Setting env var for project: $PROJECT_ID"
 
           HTTP=$(curl -s -o /tmp/env_resp.json -w "%{http_code}" \
-            -X POST "https://api.vercel.com/v9/projects/${PROJECT_ID}/env?teamId=${VERCEL_ORG_ID}" \
-            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            -X POST "https://api.vercel.com/v9/projects/${PROJECT_ID}/env?teamId=${ORG_ID}" \
+            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d "{\"key\":\"ANTHROPIC_API_KEY\",\"value\":\"${{ secrets.ANTHROPIC_API_KEY }}\",\"type\":\"encrypted\",\"target\":[\"production\",\"preview\",\"development\"]}")
-          echo "Set env HTTP: $HTTP"
+          echo "HTTP $HTTP"
           cat /tmp/env_resp.json
 
-          echo ">>> Redeploying with env var..."
+      - name: Redeploy with env var
+        run: |
+          PROJECT_ID=$(node -p "require('./.vercel/project.json').projectId")
+          VERCEL_PROJECT_ID="$PROJECT_ID" VERCEL_ORG_ID="${{ secrets.VERCEL_ORG_ID }}" \
           vercel \
             --prod \
             --yes \
-            --token="$VERCEL_TOKEN" \
-            --scope="loja-pro-max" \
-            --name="smart-vapor-comissoes"
+            --token="${{ secrets.VERCEL_TOKEN }}"
+          echo "=== Deploy complete ==="
