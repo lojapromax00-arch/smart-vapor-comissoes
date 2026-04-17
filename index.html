@@ -1,0 +1,1397 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Vapor — Comissões</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+:root {
+  --green: #00e676;
+  --green2: #00c853;
+  --cyan: #00e5ff;
+  --red: #ff5252;
+  --yellow: #ffd740;
+  --bg: #0a0e1a;
+  --bg2: #111827;
+  --surface: rgba(255,255,255,0.05);
+  --surface2: rgba(255,255,255,0.08);
+  --border: rgba(255,255,255,0.1);
+  --text: #e2e8f0;
+  --text2: #94a3b8;
+  --radius: 12px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.4);
+}
+.light {
+  --bg: #f0f4f8;
+  --bg2: #ffffff;
+  --surface: rgba(0,0,0,0.04);
+  --surface2: rgba(0,0,0,0.07);
+  --border: rgba(0,0,0,0.1);
+  --text: #1a202c;
+  --text2: #4a5568;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; transition: background 0.3s, color 0.3s; }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── LOGIN ── */
+#page-login { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 1rem; }
+.login-card { background: var(--surface); backdrop-filter: blur(20px); border: 1px solid var(--border); border-radius: 20px; padding: 2.5rem; width: 100%; max-width: 400px; box-shadow: var(--shadow); }
+.login-logo { text-align: center; margin-bottom: 1.5rem; }
+.login-logo h1 { font-size: 1.6rem; font-weight: 700; background: linear-gradient(135deg, var(--green), var(--cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.login-logo p { color: var(--text2); font-size: 0.85rem; margin-top: 0.25rem; }
+
+/* ── APP SHELL ── */
+#app { display: none; min-height: 100vh; }
+.sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: 220px; background: var(--bg2); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 100; transition: transform 0.3s; }
+.sidebar-logo { padding: 1.25rem 1rem; border-bottom: 1px solid var(--border); }
+.sidebar-logo h2 { font-size: 1rem; font-weight: 700; background: linear-gradient(135deg, var(--green), var(--cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.sidebar-logo span { font-size: 0.75rem; color: var(--text2); }
+.sidebar-nav { flex: 1; padding: 0.75rem 0; overflow-y: auto; }
+.nav-item { display: flex; align-items: center; gap: 0.65rem; padding: 0.65rem 1rem; cursor: pointer; border-radius: 8px; margin: 0 0.5rem 0.15rem; color: var(--text2); font-size: 0.875rem; transition: all 0.2s; }
+.nav-item:hover { background: var(--surface); color: var(--text); }
+.nav-item.active { background: rgba(0,230,118,0.15); color: var(--green); }
+.nav-item .icon { font-size: 1rem; width: 20px; text-align: center; }
+.sidebar-footer { padding: 1rem; border-top: 1px solid var(--border); }
+.user-info { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem; border-radius: 8px; cursor: pointer; transition: background 0.2s; }
+.user-info:hover { background: var(--surface); }
+.avatar { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--green), var(--cyan)); display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; color: #000; flex-shrink: 0; overflow: hidden; }
+.avatar img { width: 100%; height: 100%; object-fit: cover; }
+.user-name { font-size: 0.8rem; font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.badge-admin { font-size: 0.6rem; background: var(--cyan); color: #000; padding: 1px 6px; border-radius: 20px; font-weight: 700; }
+
+.main { margin-left: 220px; padding: 1.5rem; min-height: 100vh; }
+.page { display: none; }
+.page.active { display: block; }
+
+/* ── TOPBAR ── */
+.topbar { display: flex; align-items: center; justify-content: between; margin-bottom: 1.5rem; gap: 1rem; flex-wrap: wrap; }
+.topbar h2 { font-size: 1.4rem; font-weight: 700; flex: 1; }
+.btn-theme { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 0.5rem; border-radius: 8px; cursor: pointer; font-size: 1rem; transition: all 0.2s; }
+.btn-theme:hover { background: var(--surface2); }
+
+/* ── CARDS ── */
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+.card { background: var(--surface); backdrop-filter: blur(10px); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; }
+.card-label { font-size: 0.75rem; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem; }
+.card-value { font-size: 1.4rem; font-weight: 700; }
+.card-value.green { color: var(--green); }
+.card-value.cyan { color: var(--cyan); }
+.card-value.yellow { color: var(--yellow); }
+.card-sub { font-size: 0.75rem; color: var(--text2); margin-top: 0.25rem; }
+
+/* ── FILTROS ── */
+.filter-bar { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+.filter-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text2); padding: 0.35rem 0.85rem; border-radius: 20px; cursor: pointer; font-size: 0.8rem; transition: all 0.2s; }
+.filter-btn:hover, .filter-btn.active { background: rgba(0,230,118,0.15); color: var(--green); border-color: var(--green); }
+select.filter-btn { appearance: none; padding-right: 1.5rem; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2394a3b8'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; }
+
+/* ── CHARTS ── */
+.charts { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
+.chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; }
+.chart-card h3 { font-size: 0.875rem; color: var(--text2); margin-bottom: 1rem; }
+.chart-wrap { position: relative; height: 200px; }
+
+/* ── META ── */
+.meta-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1rem; }
+.meta-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+.meta-header h3 { font-size: 0.875rem; color: var(--text2); }
+.meta-pct { font-size: 1rem; font-weight: 700; color: var(--green); }
+.progress-bar { background: var(--surface2); border-radius: 99px; height: 8px; overflow: hidden; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, var(--green), var(--cyan)); border-radius: 99px; transition: width 0.6s ease; }
+.meta-footer { display: flex; justify-content: space-between; margin-top: 0.5rem; font-size: 0.75rem; color: var(--text2); }
+
+/* ── RANKING ── */
+.ranking { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
+.rank-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; }
+.rank-card h3 { font-size: 0.8rem; color: var(--text2); margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.rank-item { display: flex; align-items: center; gap: 0.6rem; padding: 0.4rem 0; border-bottom: 1px solid var(--border); font-size: 0.82rem; }
+.rank-item:last-child { border-bottom: none; }
+.rank-pos { width: 20px; font-weight: 700; color: var(--text2); font-size: 0.75rem; }
+.rank-name { flex: 1; }
+.rank-val { font-weight: 600; color: var(--green); }
+.rank-leader { background: rgba(0,230,118,0.1); border-radius: 8px; padding: 0.4rem 0.6rem; border: 1px solid rgba(0,230,118,0.2); }
+
+/* ── COMPARATIVO ── */
+.comp-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; margin-bottom: 1.5rem; }
+.comp-card h3 { font-size: 0.875rem; color: var(--text2); margin-bottom: 0.75rem; }
+.comp-row { display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem; }
+.comp-delta { font-weight: 700; }
+.comp-delta.up { color: var(--green); }
+.comp-delta.down { color: var(--red); }
+
+/* ── FORMS ── */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+.form-group { display: flex; flex-direction: column; gap: 0.35rem; }
+.form-group.full { grid-column: 1 / -1; }
+label { font-size: 0.78rem; color: var(--text2); font-weight: 500; }
+input, select, textarea {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 0.55rem 0.75rem;
+  font-size: 0.875rem;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.2s;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--green); }
+textarea { resize: vertical; min-height: 80px; }
+
+/* ── BUTTONS ── */
+.btn { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.55rem 1.2rem; border-radius: 8px; border: none; cursor: pointer; font-size: 0.875rem; font-weight: 600; transition: all 0.2s; }
+.btn-primary { background: var(--green); color: #000; }
+.btn-primary:hover { background: var(--green2); transform: translateY(-1px); }
+.btn-secondary { background: var(--surface); border: 1px solid var(--border); color: var(--text); }
+.btn-secondary:hover { background: var(--surface2); }
+.btn-danger { background: rgba(255,82,82,0.15); border: 1px solid var(--red); color: var(--red); }
+.btn-danger:hover { background: rgba(255,82,82,0.25); }
+.btn-sm { padding: 0.3rem 0.7rem; font-size: 0.78rem; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+/* ── TABS ── */
+.tabs { display: flex; gap: 0.5rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border); padding-bottom: 0; }
+.tab { padding: 0.6rem 1rem; cursor: pointer; font-size: 0.875rem; color: var(--text2); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.2s; }
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--green); border-bottom-color: var(--green); }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ── UPLOAD ── */
+.upload-zone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 2rem; text-align: center; cursor: pointer; transition: all 0.2s; }
+.upload-zone:hover, .upload-zone.drag { border-color: var(--green); background: rgba(0,230,118,0.05); }
+.upload-zone p { color: var(--text2); font-size: 0.875rem; margin-top: 0.5rem; }
+.preview-images { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
+.preview-img { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); }
+
+/* ── TABLE ── */
+.table-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); }
+table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+thead th { background: var(--surface2); padding: 0.7rem 0.75rem; text-align: left; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text2); white-space: nowrap; }
+tbody tr { border-top: 1px solid var(--border); transition: background 0.15s; }
+tbody tr:hover { background: var(--surface); }
+tbody td { padding: 0.65rem 0.75rem; vertical-align: middle; }
+.status-badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 0.7rem; font-weight: 600; }
+.status-pago { background: rgba(0,230,118,0.15); color: var(--green); }
+.status-ativa { background: rgba(0,229,255,0.15); color: var(--cyan); }
+.status-cancelada { background: rgba(255,82,82,0.15); color: var(--red); }
+.loja-badge { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; }
+.loja-VAPOR { background: rgba(0,230,118,0.2); color: var(--green); }
+.loja-SMART { background: rgba(0,229,255,0.2); color: var(--cyan); }
+
+/* ── MODAL ── */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; padding: 1rem; }
+.modal-overlay.open { display: flex; }
+.modal { background: var(--bg2); border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; }
+.modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
+.modal-header h3 { font-size: 1rem; font-weight: 700; }
+.modal-close { background: none; border: none; color: var(--text2); font-size: 1.25rem; cursor: pointer; padding: 0.25rem; }
+
+/* ── TOAST ── */
+#toast-container { position: fixed; top: 1rem; right: 1rem; z-index: 2000; display: flex; flex-direction: column; gap: 0.5rem; }
+.toast { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 0.75rem 1rem; font-size: 0.85rem; box-shadow: var(--shadow); animation: slideIn 0.3s ease; max-width: 320px; display: flex; align-items: center; gap: 0.5rem; }
+.toast.success { border-color: var(--green); }
+.toast.error { border-color: var(--red); }
+.toast.info { border-color: var(--cyan); }
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+/* ── MISC ── */
+.section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem; }
+.section-header h3 { font-size: 1rem; font-weight: 600; }
+.empty-state { text-align: center; padding: 3rem 1rem; color: var(--text2); }
+.empty-state .icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+.loading { text-align: center; padding: 2rem; color: var(--text2); }
+.spinner { display: inline-block; width: 24px; height: 24px; border: 2px solid var(--border); border-top-color: var(--green); border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── PERFIL ── */
+.perfil-avatar-wrap { display: flex; flex-direction: column; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; }
+.perfil-avatar { width: 90px; height: 90px; border-radius: 50%; object-fit: cover; border: 3px solid var(--green); }
+.avatar-placeholder { width: 90px; height: 90px; border-radius: 50%; background: linear-gradient(135deg, var(--green), var(--cyan)); display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: 700; color: #000; }
+
+/* ── CHECKBOX ── */
+input[type=checkbox] { width: auto; cursor: pointer; accent-color: var(--green); }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 768px) {
+  .sidebar { transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); }
+  .main { margin-left: 0; padding: 1rem; }
+  .charts { grid-template-columns: 1fr; }
+  .ranking { grid-template-columns: 1fr; }
+  .form-grid { grid-template-columns: 1fr; }
+  .topbar { padding-top: 2.5rem; }
+  .hamburger { display: flex !important; position: fixed; top: 1rem; left: 1rem; z-index: 200; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 0.4rem 0.6rem; cursor: pointer; }
+}
+.hamburger { display: none; flex-direction: column; gap: 4px; }
+.hamburger span { display: block; width: 18px; height: 2px; background: var(--text); border-radius: 2px; }
+.overlay-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 99; }
+.overlay-bg.open { display: block; }
+</style>
+</head>
+<body>
+
+<!-- TOAST -->
+<div id="toast-container"></div>
+
+<!-- LOGIN -->
+<div id="page-login">
+  <div class="login-card">
+    <div class="login-logo">
+      <h1>Smart Vapor</h1>
+      <p>Sistema de Comissões</p>
+    </div>
+    <form id="form-login" style="display:flex;flex-direction:column;gap:0.75rem;">
+      <div class="form-group">
+        <label>E-mail</label>
+        <input type="email" id="login-email" placeholder="seu@email.com" required>
+      </div>
+      <div class="form-group">
+        <label>Senha</label>
+        <input type="password" id="login-senha" placeholder="••••••••" required>
+      </div>
+      <button type="submit" class="btn btn-primary" id="btn-login" style="width:100%;justify-content:center;margin-top:0.5rem;">Entrar</button>
+      <p id="login-error" style="color:var(--red);font-size:0.8rem;text-align:center;display:none;"></p>
+    </form>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <button class="hamburger" id="hamburger">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="overlay-bg" id="overlay-bg"></div>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <h2>Smart Vapor</h2>
+      <span>Comissões</span>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-item active" data-page="dashboard"><span class="icon">📊</span>Dashboard</div>
+      <div class="nav-item" data-page="nova-venda"><span class="icon">➕</span>Nova Venda</div>
+      <div class="nav-item" data-page="historico"><span class="icon">📋</span>Histórico</div>
+      <div class="nav-item" data-page="relatorios"><span class="icon">📈</span>Relatórios</div>
+      <div class="nav-item" data-page="perfil"><span class="icon">👤</span>Perfil</div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info" id="user-info" onclick="showPage('perfil')">
+        <div class="avatar" id="sidebar-avatar">?</div>
+        <div>
+          <div class="user-name" id="sidebar-nome">...</div>
+          <div id="badge-admin" style="display:none;" class="badge-admin">ADMIN</div>
+        </div>
+        <button onclick="logout(event)" title="Sair" style="background:none;border:none;color:var(--text2);cursor:pointer;padding:0.25rem;font-size:0.9rem;">⏻</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="topbar">
+        <h2>Dashboard</h2>
+        <button class="btn-theme" onclick="toggleTheme()" title="Tema">☀️</button>
+        <div id="admin-filter-wrap" style="display:none;">
+          <select class="filter-btn" id="filter-vendedor" onchange="loadDashboard()">
+            <option value="">Todos os vendedores</option>
+          </select>
+        </div>
+      </div>
+      <div class="filter-bar" id="dash-filter-bar">
+        <button class="filter-btn active" data-period="hoje" onclick="setPeriod(this,'hoje')">Hoje</button>
+        <button class="filter-btn" data-period="semana" onclick="setPeriod(this,'semana')">Esta semana</button>
+        <button class="filter-btn" data-period="mes" onclick="setPeriod(this,'mes')">Este mês</button>
+        <button class="filter-btn" data-period="tudo" onclick="setPeriod(this,'tudo')">Tudo</button>
+      </div>
+      <div class="cards" id="dash-cards">
+        <div class="card"><div class="card-label">Total Vendido</div><div class="card-value green" id="c-total">—</div></div>
+        <div class="card"><div class="card-label">Comissão</div><div class="card-value cyan" id="c-comissao">—</div></div>
+        <div class="card"><div class="card-label">Pedidos</div><div class="card-value" id="c-pedidos">—</div></div>
+        <div class="card"><div class="card-label">Ticket Médio</div><div class="card-value yellow" id="c-ticket">—</div></div>
+        <div class="card"><div class="card-label">VAPOR</div><div class="card-value green" id="c-vapor">—</div></div>
+        <div class="card"><div class="card-label">SMART</div><div class="card-value cyan" id="c-smart">—</div></div>
+      </div>
+      <div class="meta-card">
+        <div class="meta-header">
+          <h3>Meta Mensal — R$ 3.000</h3>
+          <span class="meta-pct" id="meta-pct">0%</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="meta-fill" style="width:0%"></div></div>
+        <div class="meta-footer">
+          <span id="meta-atual">R$ 0,00</span>
+          <span>R$ 3.000,00</span>
+        </div>
+      </div>
+      <div class="comp-card" id="comp-card">
+        <h3>Comparativo — Este mês vs. mês anterior</h3>
+        <div class="comp-row">
+          <span id="comp-texto">Carregando...</span>
+          <span class="comp-delta" id="comp-delta"></span>
+        </div>
+      </div>
+      <div class="charts">
+        <div class="chart-card">
+          <h3>Vendas por dia</h3>
+          <div class="chart-wrap"><canvas id="chart-dia"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h3>VAPOR vs SMART</h3>
+          <div class="chart-wrap"><canvas id="chart-loja"></canvas></div>
+        </div>
+      </div>
+      <div class="ranking" id="ranking-wrap">
+        <div class="rank-card" id="rank-vapor">
+          <h3>🟢 Top VAPOR</h3>
+          <div id="rank-vapor-list"><div class="loading"><div class="spinner"></div></div></div>
+        </div>
+        <div class="rank-card" id="rank-smart">
+          <h3>🔵 Top SMART</h3>
+          <div id="rank-smart-list"><div class="loading"><div class="spinner"></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NOVA VENDA -->
+    <div class="page" id="page-nova-venda">
+      <div class="topbar"><h2>Nova Venda</h2></div>
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('nv','print',this)">📷 Print</div>
+        <div class="tab" onclick="switchTab('nv','texto',this)">📋 Texto</div>
+        <div class="tab" onclick="switchTab('nv','excel',this)">📊 Excel</div>
+        <div class="tab" onclick="switchTab('nv','manual',this)">✏️ Manual</div>
+      </div>
+
+      <!-- TAB PRINT -->
+      <div class="tab-content active" id="nv-tab-print">
+        <div class="upload-zone" id="upload-print-zone" onclick="document.getElementById('input-prints').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleDrop(event)">
+          <div style="font-size:2rem">📷</div>
+          <p>Clique ou arraste prints aqui</p>
+          <p style="font-size:0.75rem;margin-top:0.25rem">Suporta JPG, PNG, WebP</p>
+        </div>
+        <input type="file" id="input-prints" multiple accept="image/*" style="display:none" onchange="handlePrints(event)">
+        <div class="preview-images" id="print-previews"></div>
+        <div id="print-extract-area" style="display:none;margin-top:1rem;">
+          <div id="print-forms"></div>
+        </div>
+      </div>
+
+      <!-- TAB TEXTO -->
+      <div class="tab-content" id="nv-tab-texto">
+        <div class="form-group" style="margin-bottom:0.75rem;">
+          <label>Cole o texto do pedido aqui</label>
+          <textarea id="input-texto" rows="6" placeholder="Cole aqui o texto com dados do pedido (nome, telefone, número, valor, loja...)"></textarea>
+        </div>
+        <button class="btn btn-secondary" onclick="extrairTexto()" id="btn-extrair-texto">🤖 Extrair com IA</button>
+        <div id="texto-form-wrap" style="display:none;margin-top:1rem;"></div>
+      </div>
+
+      <!-- TAB EXCEL -->
+      <div class="tab-content" id="nv-tab-excel">
+        <div class="upload-zone" onclick="document.getElementById('input-excel').click()">
+          <div style="font-size:2rem">📊</div>
+          <p>Clique para selecionar Excel ou CSV</p>
+          <p style="font-size:0.75rem;margin-top:0.25rem">.xlsx, .xls, .csv</p>
+        </div>
+        <input type="file" id="input-excel" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleExcel(event)">
+        <div id="excel-preview" style="margin-top:1rem;"></div>
+      </div>
+
+      <!-- TAB MANUAL -->
+      <div class="tab-content" id="nv-tab-manual">
+        <form id="form-manual" onsubmit="salvarVendaManual(event)">
+          <div class="form-grid" style="margin-bottom:1rem;">
+            <div class="form-group"><label>Nome do Cliente</label><input type="text" name="nome_cliente" required></div>
+            <div class="form-group"><label>Telefone</label><input type="tel" name="telefone" required></div>
+            <div class="form-group"><label>Número do Pedido</label><input type="text" name="numero_pedido" required></div>
+            <div class="form-group"><label>Data da Venda</label><input type="date" name="data_venda" required></div>
+            <div class="form-group"><label>Valor (R$)</label><input type="number" name="valor" step="0.01" min="0.01" required></div>
+            <div class="form-group"><label>Loja</label>
+              <select name="loja" required>
+                <option value="VAPOR">VAPOR</option>
+                <option value="SMART">SMART</option>
+              </select>
+            </div>
+            <div class="form-group full"><label>Observações</label><textarea name="observacoes"></textarea></div>
+          </div>
+          <button type="submit" class="btn btn-primary" id="btn-salvar-manual">💾 Salvar Venda</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- HISTÓRICO -->
+    <div class="page" id="page-historico">
+      <div class="topbar"><h2>Histórico</h2></div>
+      <div class="filter-bar" style="margin-bottom:0.75rem;">
+        <input type="text" id="hist-busca" placeholder="🔍 Buscar..." style="max-width:180px;padding:0.35rem 0.75rem;font-size:0.8rem;" oninput="loadHistorico()">
+        <select class="filter-btn" id="hist-loja" onchange="loadHistorico()">
+          <option value="">Todas as lojas</option>
+          <option value="VAPOR">VAPOR</option>
+          <option value="SMART">SMART</option>
+        </select>
+        <select class="filter-btn" id="hist-status" onchange="loadHistorico()">
+          <option value="">Todos os status</option>
+          <option value="pago">Pago</option>
+          <option value="ativa">Ativa</option>
+          <option value="cancelada">Cancelada</option>
+        </select>
+        <input type="date" id="hist-de" class="filter-btn" style="padding:0.35rem 0.75rem;" onchange="loadHistorico()">
+        <input type="date" id="hist-ate" class="filter-btn" style="padding:0.35rem 0.75rem;" onchange="loadHistorico()">
+      </div>
+      <div class="section-header">
+        <span id="hist-count" style="font-size:0.8rem;color:var(--text2)">0 registros</span>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+          <button class="btn btn-danger btn-sm" id="btn-excluir-sel" onclick="excluirSelecionados()" style="display:none;">🗑️ Excluir selecionados</button>
+          <button class="btn btn-secondary btn-sm" onclick="exportarCSV()">⬇️ CSV</button>
+          <button class="btn btn-secondary btn-sm" onclick="exportarExcel()">⬇️ Excel</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="check-all" onchange="toggleCheckAll(this)"></th>
+              <th>Pedido</th>
+              <th>Cliente</th>
+              <th>Data</th>
+              <th>Valor</th>
+              <th>Comissão</th>
+              <th>Loja</th>
+              <th>Status</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="hist-tbody">
+            <tr><td colspan="9" class="loading"><div class="spinner"></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- RELATÓRIOS -->
+    <div class="page" id="page-relatorios">
+      <div class="topbar"><h2>Relatórios</h2></div>
+      <div class="filter-bar" style="margin-bottom:1.25rem;align-items:center;">
+        <label style="font-size:0.8rem;color:var(--text2);">De:</label>
+        <input type="date" id="rel-de" class="filter-btn" style="padding:0.35rem 0.75rem;">
+        <label style="font-size:0.8rem;color:var(--text2);">Até:</label>
+        <input type="date" id="rel-ate" class="filter-btn" style="padding:0.35rem 0.75rem;">
+        <button class="btn btn-primary btn-sm" onclick="loadRelatorio()">Gerar</button>
+        <button class="btn btn-secondary btn-sm" onclick="exportarRelatorioCSV()">⬇️ CSV</button>
+        <button class="btn btn-secondary btn-sm" onclick="exportarRelatorioExcel()">⬇️ Excel</button>
+      </div>
+      <div class="cards" id="rel-cards">
+        <div class="card"><div class="card-label">Total Vendido</div><div class="card-value green" id="rel-total">—</div></div>
+        <div class="card"><div class="card-label">Comissão</div><div class="card-value cyan" id="rel-comissao">—</div></div>
+        <div class="card"><div class="card-label">Pedidos</div><div class="card-value" id="rel-pedidos">—</div></div>
+        <div class="card"><div class="card-label">Ticket Médio</div><div class="card-value yellow" id="rel-ticket">—</div></div>
+      </div>
+      <div class="charts" style="margin-bottom:1.25rem;">
+        <div class="chart-card">
+          <h3>Vendas por Loja</h3>
+          <div class="chart-wrap"><canvas id="rel-chart-loja"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h3>Evolução diária</h3>
+          <div class="chart-wrap"><canvas id="rel-chart-dia"></canvas></div>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Pedido</th><th>Cliente</th><th>Data</th><th>Valor</th><th>Comissão</th><th>Loja</th><th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="rel-tbody">
+            <tr><td colspan="7"><div class="empty-state"><div class="icon">📈</div>Selecione um período e clique em Gerar</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PERFIL -->
+    <div class="page" id="page-perfil">
+      <div class="topbar"><h2>Perfil</h2></div>
+      <div style="max-width:480px;">
+        <div class="card" style="padding:1.5rem;margin-bottom:1rem;">
+          <div class="perfil-avatar-wrap">
+            <div id="perfil-avatar-wrap">
+              <div class="avatar-placeholder" id="perfil-avatar-placeholder">?</div>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="document.getElementById('input-avatar').click()">Trocar foto</button>
+            <input type="file" id="input-avatar" accept="image/*" style="display:none" onchange="uploadAvatar(event)">
+          </div>
+          <div class="form-grid" style="margin-bottom:1rem;">
+            <div class="form-group full">
+              <label>Nome de exibição</label>
+              <input type="text" id="perfil-nome" placeholder="Seu nome">
+            </div>
+            <div class="form-group full">
+              <label>E-mail</label>
+              <input type="text" id="perfil-email" disabled style="opacity:0.6;">
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="salvarPerfil()">💾 Salvar</button>
+        </div>
+        <div class="card" style="padding:1.5rem;">
+          <h3 style="font-size:0.9rem;margin-bottom:1rem;">Trocar Senha</h3>
+          <div class="form-group" style="margin-bottom:0.75rem;">
+            <label>Nova Senha</label>
+            <input type="password" id="nova-senha" placeholder="Mínimo 6 caracteres">
+          </div>
+          <div class="form-group" style="margin-bottom:1rem;">
+            <label>Confirmar Nova Senha</label>
+            <input type="password" id="conf-senha" placeholder="Repita a senha">
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="trocarSenha()">🔒 Atualizar Senha</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR VENDA -->
+<div class="modal-overlay" id="modal-editar">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Editar Venda</h3>
+      <button class="modal-close" onclick="fecharModal('modal-editar')">✕</button>
+    </div>
+    <form id="form-editar" onsubmit="salvarEdicao(event)">
+      <input type="hidden" id="edit-id">
+      <div class="form-grid" style="margin-bottom:1rem;">
+        <div class="form-group"><label>Nome do Cliente</label><input type="text" id="edit-nome" required></div>
+        <div class="form-group"><label>Telefone</label><input type="tel" id="edit-tel" required></div>
+        <div class="form-group"><label>Número do Pedido</label><input type="text" id="edit-pedido" required></div>
+        <div class="form-group"><label>Data da Venda</label><input type="date" id="edit-data" required></div>
+        <div class="form-group"><label>Valor (R$)</label><input type="number" id="edit-valor" step="0.01" required></div>
+        <div class="form-group"><label>Loja</label>
+          <select id="edit-loja" required>
+            <option value="VAPOR">VAPOR</option>
+            <option value="SMART">SMART</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Status</label>
+          <select id="edit-status" required>
+            <option value="pago">Pago</option>
+            <option value="ativa">Ativa</option>
+            <option value="cancelada">Cancelada</option>
+          </select>
+        </div>
+        <div class="form-group full"><label>Observações</label><textarea id="edit-obs"></textarea></div>
+      </div>
+      <div style="display:flex;gap:0.5rem;">
+        <button type="submit" class="btn btn-primary">💾 Salvar</button>
+        <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-editar')">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ──
+const SUPABASE_URL = 'https://iellghdnlofcqqaschzd.supabase.co'
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImllbGxnaGRubG9mY3FxYXNjaHpkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0Mzg5MTYsImV4cCI6MjA5MjAxNDkxNn0.cijD4jfQshhryXxoQPJjblk-D4YzIyAsTzEhGJf6Mxo'
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON)
+const META_MENSAL = 3000
+
+// ── STATE ──
+let currentUser = null
+let currentPerfil = null
+let dashPeriod = 'hoje'
+let chartDia = null
+let chartLoja = null
+let relChartLoja = null
+let relChartDia = null
+let histData = []
+let relData = []
+
+// ── AUTH ──
+sb.auth.onAuthStateChange(async (event, session) => {
+  if (session) {
+    currentUser = session.user
+    await loadPerfil()
+    document.getElementById('page-login').style.display = 'none'
+    document.getElementById('app').style.display = 'block'
+    showPage('dashboard')
+  } else {
+    currentUser = null
+    currentPerfil = null
+    document.getElementById('page-login').style.display = 'flex'
+    document.getElementById('app').style.display = 'none'
+  }
+})
+
+document.getElementById('form-login').onsubmit = async (e) => {
+  e.preventDefault()
+  const btn = document.getElementById('btn-login')
+  const errEl = document.getElementById('login-error')
+  btn.disabled = true
+  btn.textContent = 'Entrando...'
+  errEl.style.display = 'none'
+  const { error } = await sb.auth.signInWithPassword({
+    email: document.getElementById('login-email').value,
+    password: document.getElementById('login-senha').value
+  })
+  if (error) {
+    errEl.textContent = 'E-mail ou senha inválidos.'
+    errEl.style.display = 'block'
+  }
+  btn.disabled = false
+  btn.textContent = 'Entrar'
+}
+
+async function logout(e) {
+  e.stopPropagation()
+  await sb.auth.signOut()
+}
+
+// ── PERFIL ──
+async function loadPerfil() {
+  const { data } = await sb.from('perfis').select('*').eq('id', currentUser.id).single()
+  if (data) {
+    currentPerfil = data
+  } else {
+    // Cria perfil se não existe
+    await sb.from('perfis').insert({ id: currentUser.id, email: currentUser.email })
+    currentPerfil = { id: currentUser.id, email: currentUser.email, role: 'vendedor' }
+  }
+  updateSidebarUser()
+  if (currentPerfil.role === 'admin') {
+    document.getElementById('badge-admin').style.display = 'inline-block'
+    document.getElementById('admin-filter-wrap').style.display = 'block'
+    loadVendedores()
+  }
+}
+
+function updateSidebarUser() {
+  const nome = currentPerfil?.nome || currentUser?.email?.split('@')[0] || '?'
+  document.getElementById('sidebar-nome').textContent = nome
+  const avatarEl = document.getElementById('sidebar-avatar')
+  if (currentPerfil?.avatar_url) {
+    avatarEl.innerHTML = `<img src="${currentPerfil.avatar_url}" alt="">`
+  } else {
+    avatarEl.textContent = nome[0].toUpperCase()
+  }
+}
+
+async function loadVendedores() {
+  const { data } = await sb.from('perfis').select('id, email, nome')
+  const sel = document.getElementById('filter-vendedor')
+  sel.innerHTML = '<option value="">Todos os vendedores</option>'
+  if (data) data.forEach(v => {
+    sel.innerHTML += `<option value="${v.id}">${v.nome || v.email}</option>`
+  })
+}
+
+// ── ROUTER ──
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'))
+  document.getElementById('page-' + name).classList.add('active')
+  document.querySelector(`[data-page="${name}"]`)?.classList.add('active')
+  closeSidebar()
+  if (name === 'dashboard') loadDashboard()
+  if (name === 'historico') loadHistorico()
+  if (name === 'perfil') fillPerfil()
+}
+
+document.querySelectorAll('.nav-item').forEach(el => {
+  el.addEventListener('click', () => showPage(el.dataset.page))
+})
+
+// ── MOBILE SIDEBAR ──
+document.getElementById('hamburger').onclick = () => {
+  document.getElementById('sidebar').classList.toggle('open')
+  document.getElementById('overlay-bg').classList.toggle('open')
+}
+document.getElementById('overlay-bg').onclick = closeSidebar
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open')
+  document.getElementById('overlay-bg').classList.remove('open')
+}
+
+// ── THEME ──
+function toggleTheme() {
+  document.body.classList.toggle('light')
+}
+
+// ── PERIOD ──
+function setPeriod(btn, period) {
+  document.querySelectorAll('#dash-filter-bar .filter-btn').forEach(b => b.classList.remove('active'))
+  btn.classList.add('active')
+  dashPeriod = period
+  loadDashboard()
+}
+
+function getPeriodRange(period) {
+  const now = new Date()
+  let from, to
+  to = now.toISOString().split('T')[0]
+  if (period === 'hoje') {
+    from = to
+  } else if (period === 'semana') {
+    const d = new Date(now)
+    d.setDate(d.getDate() - d.getDay())
+    from = d.toISOString().split('T')[0]
+  } else if (period === 'mes') {
+    from = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`
+  } else {
+    from = null
+  }
+  return { from, to }
+}
+
+// ── DASHBOARD ──
+async function loadDashboard() {
+  const { from, to } = getPeriodRange(dashPeriod)
+  const vendedorId = document.getElementById('filter-vendedor')?.value || ''
+
+  let q = sb.from('vendas').select('*').neq('status','cancelada')
+  if (from) q = q.gte('data_venda', from).lte('data_venda', to)
+  if (vendedorId) q = q.eq('user_id', vendedorId)
+  const { data: vendas } = await q
+
+  if (!vendas) return
+
+  const total = vendas.reduce((s, v) => s + Number(v.valor), 0)
+  const comissao = vendas.reduce((s, v) => s + Number(v.valor_comissao), 0)
+  const vapor = vendas.filter(v => v.loja === 'VAPOR').reduce((s, v) => s + Number(v.valor), 0)
+  const smart = vendas.filter(v => v.loja === 'SMART').reduce((s, v) => s + Number(v.valor), 0)
+
+  document.getElementById('c-total').textContent = brl(total)
+  document.getElementById('c-comissao').textContent = brl(comissao)
+  document.getElementById('c-pedidos').textContent = vendas.length
+  document.getElementById('c-ticket').textContent = vendas.length ? brl(total / vendas.length) : '—'
+  document.getElementById('c-vapor').textContent = brl(vapor)
+  document.getElementById('c-smart').textContent = brl(smart)
+
+  // Meta mensal (usa mês atual sempre)
+  const now = new Date()
+  const mesFrom = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`
+  let qMes = sb.from('vendas').select('valor').neq('status','cancelada').gte('data_venda', mesFrom)
+  if (vendedorId) qMes = qMes.eq('user_id', vendedorId)
+  const { data: mesSales } = await qMes
+  const totalMes = (mesSales || []).reduce((s, v) => s + Number(v.valor), 0)
+  const pct = Math.min(100, (totalMes / META_MENSAL) * 100)
+  document.getElementById('meta-pct').textContent = pct.toFixed(1) + '%'
+  document.getElementById('meta-fill').style.width = pct + '%'
+  document.getElementById('meta-atual').textContent = brl(totalMes)
+
+  // Comparativo
+  const mesAntFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0]
+  const mesAntTo = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0]
+  let qAnt = sb.from('vendas').select('valor').neq('status','cancelada').gte('data_venda', mesAntFrom).lte('data_venda', mesAntTo)
+  if (vendedorId) qAnt = qAnt.eq('user_id', vendedorId)
+  const { data: antSales } = await qAnt
+  const totalAnt = (antSales || []).reduce((s, v) => s + Number(v.valor), 0)
+  const delta = totalAnt > 0 ? ((totalMes - totalAnt) / totalAnt) * 100 : 0
+  const compEl = document.getElementById('comp-texto')
+  const deltaEl = document.getElementById('comp-delta')
+  compEl.textContent = `Este mês: ${brl(totalMes)} | Mês anterior: ${brl(totalAnt)}`
+  if (delta >= 0) {
+    deltaEl.textContent = `+${delta.toFixed(1)}%`
+    deltaEl.className = 'comp-delta up'
+  } else {
+    deltaEl.textContent = `${delta.toFixed(1)}%`
+    deltaEl.className = 'comp-delta down'
+  }
+
+  // Gráfico por dia
+  renderChartDia(vendas)
+
+  // Gráfico por loja
+  renderChartLoja(vapor, smart)
+
+  // Ranking
+  renderRanking(vendas)
+}
+
+function renderChartDia(vendas) {
+  const map = {}
+  vendas.forEach(v => {
+    map[v.data_venda] = (map[v.data_venda] || 0) + Number(v.valor)
+  })
+  const labels = Object.keys(map).sort()
+  const values = labels.map(d => map[d])
+  if (chartDia) chartDia.destroy()
+  chartDia = new Chart(document.getElementById('chart-dia'), {
+    type: 'bar',
+    data: {
+      labels: labels.map(d => d.slice(5)),
+      datasets: [{ data: values, backgroundColor: 'rgba(0,230,118,0.6)', borderColor: '#00e676', borderWidth: 1, borderRadius: 4 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { color: '#94a3b8', callback: v => 'R$' + v }, grid: { color: 'rgba(255,255,255,0.05)' } }, x: { ticks: { color: '#94a3b8' }, grid: { display: false } } } }
+  })
+}
+
+function renderChartLoja(vapor, smart) {
+  if (chartLoja) chartLoja.destroy()
+  chartLoja = new Chart(document.getElementById('chart-loja'), {
+    type: 'doughnut',
+    data: {
+      labels: ['VAPOR', 'SMART'],
+      datasets: [{ data: [vapor, smart], backgroundColor: ['rgba(0,230,118,0.7)', 'rgba(0,229,255,0.7)'], borderColor: ['#00e676', '#00e5ff'], borderWidth: 2 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#94a3b8', boxWidth: 12 } } } }
+  })
+}
+
+function renderRanking(vendas) {
+  const vaporVendas = vendas.filter(v => v.loja === 'VAPOR')
+  const smartVendas = vendas.filter(v => v.loja === 'SMART')
+  const aggPedidos = (arr) => {
+    const map = {}
+    arr.forEach(v => { map[v.numero_pedido] = (map[v.numero_pedido] || 0) + Number(v.valor) })
+    return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 5)
+  }
+  const topV = aggPedidos(vaporVendas)
+  const topS = aggPedidos(smartVendas)
+  const renderList = (arr, elId) => {
+    const el = document.getElementById(elId)
+    if (!arr.length) { el.innerHTML = '<div style="color:var(--text2);font-size:0.8rem;text-align:center;padding:1rem;">Sem dados</div>'; return }
+    el.innerHTML = arr.map((item, i) => `
+      <div class="rank-item ${i===0?'rank-leader':''}">
+        <span class="rank-pos">${i+1}</span>
+        <span class="rank-name">${item[0]}</span>
+        <span class="rank-val">${brl(item[1])}</span>
+        ${i===0?'<span style="font-size:0.75rem">👑</span>':''}
+      </div>`).join('')
+  }
+  renderList(topV, 'rank-vapor-list')
+  renderList(topS, 'rank-smart-list')
+}
+
+// ── NOVA VENDA — TABS ──
+function switchTab(prefix, name, el) {
+  document.querySelectorAll(`#page-${prefix==='nv'?'nova-venda':prefix} .tab`).forEach(t => t.classList.remove('active'))
+  document.querySelectorAll(`#page-${prefix==='nv'?'nova-venda':prefix} .tab-content`).forEach(t => t.classList.remove('active'))
+  el.classList.add('active')
+  document.getElementById(`${prefix}-tab-${name}`).classList.add('active')
+}
+
+// ── PRINT ──
+function handleDrop(e) {
+  e.preventDefault()
+  document.getElementById('upload-print-zone').classList.remove('drag')
+  processImages([...e.dataTransfer.files])
+}
+function handlePrints(e) { processImages([...e.target.files]) }
+
+async function processImages(files) {
+  const previews = document.getElementById('print-previews')
+  const formsEl = document.getElementById('print-forms')
+  const area = document.getElementById('print-extract-area')
+  previews.innerHTML = ''
+  formsEl.innerHTML = ''
+  area.style.display = 'block'
+
+  for (const file of files) {
+    const url = URL.createObjectURL(file)
+    previews.innerHTML += `<img src="${url}" class="preview-img">`
+    formsEl.innerHTML += `<div style="margin-bottom:0.75rem;padding:0.75rem;background:var(--surface);border-radius:8px;border:1px solid var(--border);">
+      <div style="font-size:0.78rem;color:var(--text2);margin-bottom:0.5rem;">Extraindo dados... <div class="spinner" style="width:14px;height:14px;display:inline-block;vertical-align:middle;"></div></div>
+    </div>`
+  }
+
+  formsEl.innerHTML = ''
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i]
+    const base64 = await fileToBase64(file)
+    try {
+      const resp = await fetch('/api/extrair', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64: base64, imageMime: file.type })
+      })
+      const data = await resp.json()
+      formsEl.innerHTML += buildVendaForm(data, `print-${i}`)
+    } catch {
+      formsEl.innerHTML += buildVendaForm({}, `print-${i}`)
+    }
+  }
+}
+
+function fileToBase64(file) {
+  return new Promise(r => {
+    const fr = new FileReader()
+    fr.onload = e => r(e.target.result.split(',')[1])
+    fr.readAsDataURL(file)
+  })
+}
+
+// ── TEXTO ──
+async function extrairTexto() {
+  const texto = document.getElementById('input-texto').value.trim()
+  if (!texto) { toast('Cole algum texto primeiro', 'error'); return }
+  const btn = document.getElementById('btn-extrair-texto')
+  btn.disabled = true; btn.textContent = '⏳ Extraindo...'
+  try {
+    const resp = await fetch('/api/extrair', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ texto })
+    })
+    const data = await resp.json()
+    const wrap = document.getElementById('texto-form-wrap')
+    wrap.style.display = 'block'
+    wrap.innerHTML = buildVendaForm(data, 'texto-0')
+  } catch { toast('Erro ao extrair dados', 'error') }
+  btn.disabled = false; btn.textContent = '🤖 Extrair com IA'
+}
+
+// ── EXCEL ──
+async function handleExcel(e) {
+  const file = e.target.files[0]
+  if (!file) return
+  const preview = document.getElementById('excel-preview')
+  preview.innerHTML = '<div class="loading"><div class="spinner"></div> Lendo planilha...</div>'
+
+  const ab = await file.arrayBuffer()
+  const wb = XLSX.read(ab, { type: 'array' })
+  const ws = wb.Sheets[wb.SheetNames[0]]
+  const rows = XLSX.utils.sheet_to_json(ws, { defval: '' })
+
+  if (!rows.length) { preview.innerHTML = '<p style="color:var(--red)">Planilha vazia ou sem dados.</p>'; return }
+
+  preview.innerHTML = `<p style="font-size:0.8rem;color:var(--text2);margin-bottom:0.75rem;">${rows.length} linhas encontradas. Mapeando com IA...</p>`
+
+  try {
+    const resp = await fetch('/api/extrair', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ excel: rows.slice(0, 50) })
+    })
+    const mapped = await resp.json()
+    const arr = Array.isArray(mapped) ? mapped : []
+    if (!arr.length) { preview.innerHTML = '<p style="color:var(--red)">Não foi possível mapear os dados.</p>'; return }
+    renderExcelPreview(arr)
+  } catch { preview.innerHTML = '<p style="color:var(--red)">Erro ao processar Excel.</p>' }
+}
+
+let excelRows = []
+function renderExcelPreview(rows) {
+  excelRows = rows
+  const preview = document.getElementById('excel-preview')
+  preview.innerHTML = `
+    <div class="section-header">
+      <span style="font-size:0.8rem;color:var(--text2)">${rows.length} registros mapeados pela IA</span>
+      <button class="btn btn-primary btn-sm" onclick="importarExcel()">⬆️ Importar todos</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Pedido</th><th>Cliente</th><th>Data</th><th>Valor</th><th>Loja</th></tr></thead>
+        <tbody>${rows.map(r => `<tr>
+          <td>${r.numero_pedido||'—'}</td>
+          <td>${r.nome_cliente||'—'}</td>
+          <td>${r.data_venda||'—'}</td>
+          <td>${r.valor ? brl(r.valor) : '—'}</td>
+          <td><span class="loja-badge loja-${r.loja}">${r.loja||'—'}</span></td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>`
+}
+
+async function importarExcel() {
+  if (!excelRows.length) return
+  // Buscar pedidos existentes para deduplicar
+  const numeros = excelRows.map(r => r.numero_pedido).filter(Boolean)
+  const { data: existentes } = await sb.from('vendas').select('numero_pedido').in('numero_pedido', numeros).eq('user_id', currentUser.id)
+  const existSet = new Set((existentes || []).map(e => e.numero_pedido))
+  const novos = excelRows.filter(r => r.numero_pedido && !existSet.has(r.numero_pedido))
+
+  if (!novos.length) { toast('Todos os pedidos já existem (deduplicados)', 'info'); return }
+
+  const toInsert = novos.map(r => ({
+    user_id: currentUser.id,
+    nome_cliente: r.nome_cliente || 'Desconhecido',
+    telefone: String(r.telefone || ''),
+    numero_pedido: String(r.numero_pedido),
+    data_venda: parseDateBR(r.data_venda),
+    valor: Number(r.valor) || 0,
+    loja: ['VAPOR','SMART'].includes(r.loja) ? r.loja : 'VAPOR',
+    observacoes: r.observacoes || ''
+  }))
+
+  const { error } = await sb.from('vendas').insert(toInsert)
+  if (error) { toast('Erro ao importar: ' + error.message, 'error'); return }
+  toast(`${novos.length} vendas importadas! (${excelRows.length - novos.length} duplicadas ignoradas)`, 'success')
+  document.getElementById('excel-preview').innerHTML = ''
+  excelRows = []
+}
+
+// ── FORM DE VENDA ──
+function buildVendaForm(data, id) {
+  const today = new Date().toISOString().split('T')[0]
+  const dateParsed = data.data_venda ? parseDateBR(data.data_venda) : today
+  return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1rem;margin-bottom:0.75rem;">
+    <div class="form-grid">
+      <div class="form-group"><label>Nome do Cliente</label><input type="text" id="${id}-nome" value="${esc(data.nome_cliente||'')}"></div>
+      <div class="form-group"><label>Telefone</label><input type="tel" id="${id}-tel" value="${esc(data.telefone||'')}"></div>
+      <div class="form-group"><label>Nº Pedido</label><input type="text" id="${id}-pedido" value="${esc(data.numero_pedido||'')}"></div>
+      <div class="form-group"><label>Data</label><input type="date" id="${id}-data" value="${dateParsed}"></div>
+      <div class="form-group"><label>Valor (R$)</label><input type="number" id="${id}-valor" step="0.01" value="${data.valor||''}"></div>
+      <div class="form-group"><label>Loja</label>
+        <select id="${id}-loja">
+          <option value="VAPOR" ${data.loja==='VAPOR'?'selected':''}>VAPOR</option>
+          <option value="SMART" ${data.loja==='SMART'?'selected':''}>SMART</option>
+        </select>
+      </div>
+      <div class="form-group full"><label>Observações</label><textarea id="${id}-obs">${esc(data.observacoes||'')}</textarea></div>
+    </div>
+    <button class="btn btn-primary btn-sm" style="margin-top:0.5rem;" onclick="salvarVendaForm('${id}')">💾 Salvar</button>
+  </div>`
+}
+
+async function salvarVendaForm(id) {
+  const venda = {
+    user_id: currentUser.id,
+    nome_cliente: document.getElementById(`${id}-nome`).value,
+    telefone: document.getElementById(`${id}-tel`).value,
+    numero_pedido: document.getElementById(`${id}-pedido`).value,
+    data_venda: document.getElementById(`${id}-data`).value,
+    valor: parseFloat(document.getElementById(`${id}-valor`).value),
+    loja: document.getElementById(`${id}-loja`).value,
+    observacoes: document.getElementById(`${id}-obs`).value
+  }
+  if (!venda.nome_cliente || !venda.numero_pedido || !venda.data_venda || !venda.valor) {
+    toast('Preencha todos os campos obrigatórios', 'error'); return
+  }
+  const { error } = await sb.from('vendas').insert(venda)
+  if (error) { toast('Erro: ' + error.message, 'error'); return }
+  toast('Venda salva!', 'success')
+}
+
+async function salvarVendaManual(e) {
+  e.preventDefault()
+  const fd = new FormData(e.target)
+  const venda = {
+    user_id: currentUser.id,
+    nome_cliente: fd.get('nome_cliente'),
+    telefone: fd.get('telefone'),
+    numero_pedido: fd.get('numero_pedido'),
+    data_venda: fd.get('data_venda'),
+    valor: parseFloat(fd.get('valor')),
+    loja: fd.get('loja'),
+    observacoes: fd.get('observacoes')
+  }
+  const btn = document.getElementById('btn-salvar-manual')
+  btn.disabled = true; btn.textContent = '⏳ Salvando...'
+  const { error } = await sb.from('vendas').insert(venda)
+  btn.disabled = false; btn.textContent = '💾 Salvar Venda'
+  if (error) { toast('Erro: ' + error.message, 'error'); return }
+  toast('Venda salva com sucesso!', 'success')
+  e.target.reset()
+}
+
+// ── HISTÓRICO ──
+async function loadHistorico() {
+  const busca = document.getElementById('hist-busca').value.toLowerCase()
+  const loja = document.getElementById('hist-loja').value
+  const status = document.getElementById('hist-status').value
+  const de = document.getElementById('hist-de').value
+  const ate = document.getElementById('hist-ate').value
+
+  let q = sb.from('vendas').select('*').order('data_venda', { ascending: false })
+  if (loja) q = q.eq('loja', loja)
+  if (status) q = q.eq('status', status)
+  if (de) q = q.gte('data_venda', de)
+  if (ate) q = q.lte('data_venda', ate)
+
+  const { data } = await q
+  histData = (data || []).filter(v => {
+    if (!busca) return true
+    return v.nome_cliente?.toLowerCase().includes(busca) ||
+           v.numero_pedido?.toLowerCase().includes(busca) ||
+           v.telefone?.includes(busca)
+  })
+
+  document.getElementById('hist-count').textContent = `${histData.length} registros`
+  const tbody = document.getElementById('hist-tbody')
+  if (!histData.length) {
+    tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state"><div class="icon">📋</div>Nenhuma venda encontrada</div></td></tr>'
+    return
+  }
+  tbody.innerHTML = histData.map(v => `
+    <tr>
+      <td><input type="checkbox" class="row-check" value="${v.id}" onchange="updateBulkBtn()"></td>
+      <td>${esc(v.numero_pedido)}</td>
+      <td>${esc(v.nome_cliente)}</td>
+      <td>${formatDate(v.data_venda)}</td>
+      <td>${brl(v.valor)}</td>
+      <td style="color:var(--green)">${brl(v.valor_comissao)}</td>
+      <td><span class="loja-badge loja-${v.loja}">${v.loja}</span></td>
+      <td><span class="status-badge status-${v.status}">${v.status}</span></td>
+      <td>
+        <button class="btn btn-secondary btn-sm" onclick="abrirEditar('${v.id}')">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="excluirVenda('${v.id}')">🗑️</button>
+      </td>
+    </tr>`).join('')
+}
+
+function updateBulkBtn() {
+  const checked = document.querySelectorAll('.row-check:checked').length
+  document.getElementById('btn-excluir-sel').style.display = checked > 0 ? 'inline-flex' : 'none'
+}
+
+function toggleCheckAll(cb) {
+  document.querySelectorAll('.row-check').forEach(c => { c.checked = cb.checked })
+  updateBulkBtn()
+}
+
+async function excluirVenda(id) {
+  if (!confirm('Excluir esta venda?')) return
+  const { error } = await sb.from('vendas').delete().eq('id', id)
+  if (error) { toast('Erro ao excluir', 'error'); return }
+  toast('Venda excluída', 'success')
+  loadHistorico()
+}
+
+async function excluirSelecionados() {
+  const ids = [...document.querySelectorAll('.row-check:checked')].map(c => c.value)
+  if (!ids.length) return
+  if (!confirm(`Excluir ${ids.length} venda(s)?`)) return
+  const { error } = await sb.from('vendas').delete().in('id', ids)
+  if (error) { toast('Erro ao excluir', 'error'); return }
+  toast(`${ids.length} vendas excluídas`, 'success')
+  document.getElementById('check-all').checked = false
+  document.getElementById('btn-excluir-sel').style.display = 'none'
+  loadHistorico()
+}
+
+function abrirEditar(id) {
+  const v = histData.find(x => x.id === id)
+  if (!v) return
+  document.getElementById('edit-id').value = v.id
+  document.getElementById('edit-nome').value = v.nome_cliente
+  document.getElementById('edit-tel').value = v.telefone
+  document.getElementById('edit-pedido').value = v.numero_pedido
+  document.getElementById('edit-data').value = v.data_venda
+  document.getElementById('edit-valor').value = v.valor
+  document.getElementById('edit-loja').value = v.loja
+  document.getElementById('edit-status').value = v.status
+  document.getElementById('edit-obs').value = v.observacoes || ''
+  document.getElementById('modal-editar').classList.add('open')
+}
+
+async function salvarEdicao(e) {
+  e.preventDefault()
+  const id = document.getElementById('edit-id').value
+  const { error } = await sb.from('vendas').update({
+    nome_cliente: document.getElementById('edit-nome').value,
+    telefone: document.getElementById('edit-tel').value,
+    numero_pedido: document.getElementById('edit-pedido').value,
+    data_venda: document.getElementById('edit-data').value,
+    valor: parseFloat(document.getElementById('edit-valor').value),
+    loja: document.getElementById('edit-loja').value,
+    status: document.getElementById('edit-status').value,
+    observacoes: document.getElementById('edit-obs').value,
+    updated_at: new Date().toISOString()
+  }).eq('id', id)
+  if (error) { toast('Erro: ' + error.message, 'error'); return }
+  toast('Venda atualizada!', 'success')
+  fecharModal('modal-editar')
+  loadHistorico()
+}
+
+function fecharModal(id) { document.getElementById(id).classList.remove('open') }
+
+// ── EXPORTAR ──
+function exportarCSV() {
+  if (!histData.length) { toast('Nenhum dado para exportar', 'error'); return }
+  const rows = [['Pedido','Cliente','Telefone','Data','Valor','Comissão','Loja','Status','Observações']]
+  histData.forEach(v => rows.push([v.numero_pedido, v.nome_cliente, v.telefone, v.data_venda, v.valor, v.valor_comissao, v.loja, v.status, v.observacoes||'']))
+  downloadCSV(rows, 'historico.csv')
+}
+function exportarExcel() {
+  if (!histData.length) { toast('Nenhum dado para exportar', 'error'); return }
+  const ws = XLSX.utils.json_to_sheet(histData.map(v => ({
+    Pedido: v.numero_pedido, Cliente: v.nome_cliente, Telefone: v.telefone,
+    Data: v.data_venda, Valor: v.valor, Comissão: v.valor_comissao,
+    Loja: v.loja, Status: v.status, Observações: v.observacoes||''
+  })))
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Histórico')
+  XLSX.writeFile(wb, 'historico.xlsx')
+}
+
+// ── RELATÓRIOS ──
+async function loadRelatorio() {
+  const de = document.getElementById('rel-de').value
+  const ate = document.getElementById('rel-ate').value
+  if (!de || !ate) { toast('Selecione o período', 'error'); return }
+
+  let q = sb.from('vendas').select('*').gte('data_venda', de).lte('data_venda', ate).neq('status','cancelada').order('data_venda')
+  const { data } = await q
+  relData = data || []
+
+  const total = relData.reduce((s, v) => s + Number(v.valor), 0)
+  const comissao = relData.reduce((s, v) => s + Number(v.valor_comissao), 0)
+  document.getElementById('rel-total').textContent = brl(total)
+  document.getElementById('rel-comissao').textContent = brl(comissao)
+  document.getElementById('rel-pedidos').textContent = relData.length
+  document.getElementById('rel-ticket').textContent = relData.length ? brl(total / relData.length) : '—'
+
+  const vapor = relData.filter(v => v.loja === 'VAPOR').reduce((s, v) => s + Number(v.valor), 0)
+  const smart = relData.filter(v => v.loja === 'SMART').reduce((s, v) => s + Number(v.valor), 0)
+
+  if (relChartLoja) relChartLoja.destroy()
+  relChartLoja = new Chart(document.getElementById('rel-chart-loja'), {
+    type: 'doughnut',
+    data: {
+      labels: ['VAPOR', 'SMART'],
+      datasets: [{ data: [vapor, smart], backgroundColor: ['rgba(0,230,118,0.7)', 'rgba(0,229,255,0.7)'], borderColor: ['#00e676', '#00e5ff'], borderWidth: 2 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#94a3b8' } } } }
+  })
+
+  const mapDia = {}
+  relData.forEach(v => { mapDia[v.data_venda] = (mapDia[v.data_venda] || 0) + Number(v.valor) })
+  const dias = Object.keys(mapDia).sort()
+  if (relChartDia) relChartDia.destroy()
+  relChartDia = new Chart(document.getElementById('rel-chart-dia'), {
+    type: 'line',
+    data: {
+      labels: dias.map(d => d.slice(5)),
+      datasets: [{ data: dias.map(d => mapDia[d]), borderColor: '#00e5ff', backgroundColor: 'rgba(0,229,255,0.1)', tension: 0.4, fill: true, pointRadius: 3 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } }, x: { ticks: { color: '#94a3b8' }, grid: { display: false } } } }
+  })
+
+  document.getElementById('rel-tbody').innerHTML = relData.map(v => `
+    <tr>
+      <td>${esc(v.numero_pedido)}</td>
+      <td>${esc(v.nome_cliente)}</td>
+      <td>${formatDate(v.data_venda)}</td>
+      <td>${brl(v.valor)}</td>
+      <td style="color:var(--green)">${brl(v.valor_comissao)}</td>
+      <td><span class="loja-badge loja-${v.loja}">${v.loja}</span></td>
+      <td><span class="status-badge status-${v.status}">${v.status}</span></td>
+    </tr>`).join('')
+}
+
+function exportarRelatorioCSV() {
+  if (!relData.length) { toast('Gere um relatório primeiro', 'error'); return }
+  const rows = [['Pedido','Cliente','Data','Valor','Comissão','Loja','Status']]
+  relData.forEach(v => rows.push([v.numero_pedido, v.nome_cliente, v.data_venda, v.valor, v.valor_comissao, v.loja, v.status]))
+  downloadCSV(rows, 'relatorio.csv')
+}
+function exportarRelatorioExcel() {
+  if (!relData.length) { toast('Gere um relatório primeiro', 'error'); return }
+  const ws = XLSX.utils.json_to_sheet(relData.map(v => ({
+    Pedido: v.numero_pedido, Cliente: v.nome_cliente, Data: v.data_venda,
+    Valor: v.valor, Comissão: v.valor_comissao, Loja: v.loja, Status: v.status
+  })))
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Relatório')
+  XLSX.writeFile(wb, 'relatorio.xlsx')
+}
+
+// ── PERFIL ──
+function fillPerfil() {
+  document.getElementById('perfil-nome').value = currentPerfil?.nome || ''
+  document.getElementById('perfil-email').value = currentUser?.email || ''
+  const wrap = document.getElementById('perfil-avatar-wrap')
+  if (currentPerfil?.avatar_url) {
+    wrap.innerHTML = `<img class="perfil-avatar" src="${currentPerfil.avatar_url}" alt="">`
+  } else {
+    const letra = (currentPerfil?.nome || currentUser?.email || '?')[0].toUpperCase()
+    wrap.innerHTML = `<div class="avatar-placeholder">${letra}</div>`
+  }
+}
+
+async function salvarPerfil() {
+  const nome = document.getElementById('perfil-nome').value.trim()
+  const { error } = await sb.from('perfis').update({ nome }).eq('id', currentUser.id)
+  if (error) { toast('Erro ao salvar', 'error'); return }
+  currentPerfil = { ...currentPerfil, nome }
+  updateSidebarUser()
+  toast('Perfil atualizado!', 'success')
+}
+
+async function uploadAvatar(e) {
+  const file = e.target.files[0]
+  if (!file) return
+  const ext = file.name.split('.').pop()
+  const path = `avatars/${currentUser.id}.${ext}`
+  const { error: upErr } = await sb.storage.from('avatars').upload(path, file, { upsert: true })
+  if (upErr) { toast('Erro ao enviar foto', 'error'); return }
+  const { data: { publicUrl } } = sb.storage.from('avatars').getPublicUrl(path)
+  await sb.from('perfis').update({ avatar_url: publicUrl }).eq('id', currentUser.id)
+  currentPerfil = { ...currentPerfil, avatar_url: publicUrl }
+  updateSidebarUser()
+  fillPerfil()
+  toast('Foto atualizada!', 'success')
+}
+
+async function trocarSenha() {
+  const nova = document.getElementById('nova-senha').value
+  const conf = document.getElementById('conf-senha').value
+  if (!nova || nova.length < 6) { toast('Senha deve ter no mínimo 6 caracteres', 'error'); return }
+  if (nova !== conf) { toast('As senhas não coincidem', 'error'); return }
+  const { error } = await sb.auth.updateUser({ password: nova })
+  if (error) { toast('Erro: ' + error.message, 'error'); return }
+  toast('Senha atualizada com sucesso!', 'success')
+  document.getElementById('nova-senha').value = ''
+  document.getElementById('conf-senha').value = ''
+}
+
+// ── UTILS ──
+function brl(val) {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(val) || 0)
+}
+function formatDate(d) {
+  if (!d) return '—'
+  const [y, m, day] = d.split('-')
+  return `${day}/${m}/${y}`
+}
+function parseDateBR(d) {
+  if (!d) return new Date().toISOString().split('T')[0]
+  if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d
+  const match = d.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/)
+  if (!match) return new Date().toISOString().split('T')[0]
+  const [, day, month, year] = match
+  const y = year.length === 2 ? '20' + year : year
+  return `${y}-${month.padStart(2,'0')}-${day.padStart(2,'0')}`
+}
+function esc(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+}
+function downloadCSV(rows, filename) {
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n')
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = filename
+  a.click()
+}
+function toast(msg, type = 'info') {
+  const icons = { success: '✅', error: '❌', info: 'ℹ️' }
+  const el = document.createElement('div')
+  el.className = `toast ${type}`
+  el.innerHTML = `<span>${icons[type]}</span><span>${msg}</span>`
+  document.getElementById('toast-container').appendChild(el)
+  setTimeout(() => el.remove(), 4000)
+}
+
+// Fechar modal clicando fora
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.classList.remove('open')
+  })
+})
+</script>
+</body>
+</html>
