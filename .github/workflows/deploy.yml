@@ -8,41 +8,48 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
 
-      - name: Deploy to Vercel
-        id: deploy
+      - name: Deploy to Vercel (full output)
         run: |
-          DEPLOY_URL=$(vercel --prod --yes \
-            --token=${{ secrets.VERCEL_TOKEN }} \
-            --scope=loja-pro-max 2>&1 | tail -1)
-          echo "url=$DEPLOY_URL" >> $GITHUB_OUTPUT
-          echo "Deployed to: $DEPLOY_URL"
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          set -e
+          echo ">>> Starting vercel deploy..."
+          vercel \
+            --prod \
+            --yes \
+            --token="$VERCEL_TOKEN" \
+            --scope="loja-pro-max" \
+            --name="smart-vapor-comissoes"
+          echo ">>> Deploy done."
+          echo ">>> .vercel/project.json:"
+          cat .vercel/project.json 2>/dev/null || echo "not found"
 
-      - name: Configure ANTHROPIC_API_KEY in Vercel
+      - name: Set ANTHROPIC_API_KEY + redeploy
         run: |
-          # Get project ID from .vercel/project.json created by deploy step
-          if [ -f .vercel/project.json ]; then
-            PROJECT_ID=$(node -e "console.log(require('./.vercel/project.json').projectId)")
-            echo "Project ID: $PROJECT_ID"
-            # Add env var via Vercel API
-            curl -s -X POST "https://api.vercel.com/v9/projects/${PROJECT_ID}/env?teamId=${{ secrets.VERCEL_ORG_ID }}" \
-              -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
-              -H "Content-Type: application/json" \
-              -d "{\"key\":\"ANTHROPIC_API_KEY\",\"value\":\"${{ secrets.ANTHROPIC_API_KEY }}\",\"type\":\"encrypted\",\"target\":[\"production\",\"preview\",\"development\"]}" \
-              -o /dev/null -w "Set ANTHROPIC_API_KEY: %{http_code}\n" || true
-          fi
+          set -e
+          PROJECT_ID=$(node -p "require('./.vercel/project.json').projectId")
+          echo "Project ID: $PROJECT_ID"
 
-      - name: Final deploy (with env vars)
-        run: |
-          vercel --prod --yes \
-            --token=${{ secrets.VERCEL_TOKEN }} \
-            --scope=loja-pro-max
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          HTTP=$(curl -s -o /tmp/env_resp.json -w "%{http_code}" \
+            -X POST "https://api.vercel.com/v9/projects/${PROJECT_ID}/env?teamId=${VERCEL_ORG_ID}" \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"key\":\"ANTHROPIC_API_KEY\",\"value\":\"${{ secrets.ANTHROPIC_API_KEY }}\",\"type\":\"encrypted\",\"target\":[\"production\",\"preview\",\"development\"]}")
+          echo "Set env HTTP: $HTTP"
+          cat /tmp/env_resp.json
+
+          echo ">>> Redeploying with env var..."
+          vercel \
+            --prod \
+            --yes \
+            --token="$VERCEL_TOKEN" \
+            --scope="loja-pro-max" \
+            --name="smart-vapor-comissoes"
