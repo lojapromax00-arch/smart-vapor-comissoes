@@ -5,6 +5,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
+env:
+  VERCEL_ORG_ID: team_8sSLVwAJflnaHYrKMuJAPFmy
+  VERCEL_PROJECT_ID: prj_srRNWPLWQegyiL1fQevxiSr7JxKQ
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -15,37 +19,8 @@ jobs:
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
 
-      - name: First deploy (creates project)
+      - name: Deploy to Vercel
         run: |
-          set -e
-          vercel \
-            --prod \
-            --yes \
-            --token="${{ secrets.VERCEL_TOKEN }}" \
-            --scope="loja-pro-max"
-
-          echo "=== .vercel/project.json ==="
-          cat .vercel/project.json
-
-      - name: Set ANTHROPIC_API_KEY env var in Vercel
-        run: |
-          set -e
-          PROJECT_ID=$(node -p "require('./.vercel/project.json').projectId")
-          ORG_ID="${{ secrets.VERCEL_ORG_ID }}"
-          echo "Setting env var for project: $PROJECT_ID"
-
-          HTTP=$(curl -s -o /tmp/env_resp.json -w "%{http_code}" \
-            -X POST "https://api.vercel.com/v9/projects/${PROJECT_ID}/env?teamId=${ORG_ID}" \
-            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            -d "{\"key\":\"ANTHROPIC_API_KEY\",\"value\":\"${{ secrets.ANTHROPIC_API_KEY }}\",\"type\":\"encrypted\",\"target\":[\"production\",\"preview\",\"development\"]}")
-          echo "HTTP $HTTP"
-          cat /tmp/env_resp.json
-
-      - name: Redeploy with env var
-        run: |
-          PROJECT_ID=$(node -p "require('./.vercel/project.json').projectId")
-          VERCEL_PROJECT_ID="$PROJECT_ID" VERCEL_ORG_ID="${{ secrets.VERCEL_ORG_ID }}" \
           vercel \
             --prod \
             --yes \
