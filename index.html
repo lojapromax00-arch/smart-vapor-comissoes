@@ -24,6 +24,19 @@
   --radius: 12px;
   --shadow: 0 2px 16px rgba(0,0,0,0.08);
 }
+.dark {
+  --green: #00e676;
+  --green2: #00c853;
+  --cyan: #00e5ff;
+  --bg: #0a0e1a;
+  --bg2: #111827;
+  --surface: rgba(255,255,255,0.05);
+  --surface2: rgba(255,255,255,0.08);
+  --border: rgba(255,255,255,0.1);
+  --text: #e2e8f0;
+  --text2: #94a3b8;
+  --shadow: 0 4px 24px rgba(0,0,0,0.4);
+}
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: -apple-system, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; transition: background 0.3s, color 0.3s; }
 
@@ -34,6 +47,8 @@ body { font-family: -apple-system, 'Segoe UI', sans-serif; background: var(--bg)
 
 /* ── LOGIN ── */
 #page-login { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 1rem; background: linear-gradient(135deg, #e8f5e9 0%, #e3f2fd 100%); }
+.dark #page-login { background: #0a0e1a; }
+.dark .login-card { background: #111827; }
 .login-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 20px; padding: 2.5rem; width: 100%; max-width: 420px; box-shadow: 0 8px 32px rgba(0,0,0,0.12); }
 .login-logo { text-align: center; margin-bottom: 1.5rem; }
 .login-logo img.sv-logo-img { max-width: 260px; width: 100%; height: auto; filter: drop-shadow(0 0 12px rgba(0,230,118,0.4)); margin-bottom: 0.25rem; }
@@ -290,6 +305,9 @@ input[type=checkbox] { width: auto; cursor: pointer; accent-color: var(--green);
       <div class="nav-item" data-page="perfil"><span class="icon">👤</span>Perfil</div>
     </nav>
     <div class="sidebar-footer">
+      <button onclick="toggleTheme()" id="btn-theme" title="Alternar tema" style="width:100%;display:flex;align-items:center;gap:0.5rem;background:var(--surface);border:1px solid var(--border);color:var(--text2);cursor:pointer;padding:0.45rem 0.75rem;border-radius:8px;font-size:0.8rem;margin-bottom:0.5rem;transition:background 0.2s;">
+        <span id="theme-icon">🌙</span><span id="theme-label">Modo escuro</span>
+      </button>
       <div class="user-info" id="user-info" onclick="showPage('perfil')">
         <div class="avatar" id="sidebar-avatar">?</div>
         <div>
@@ -679,6 +697,23 @@ async function logout(e) {
   await sb.auth.signOut()
 }
 
+// ── THEME ──
+function toggleTheme() {
+  const isDark = document.body.classList.toggle('dark')
+  document.getElementById('theme-icon').textContent = isDark ? '☀️' : '🌙'
+  document.getElementById('theme-label').textContent = isDark ? 'Modo claro' : 'Modo escuro'
+  localStorage.setItem('theme', isDark ? 'dark' : 'light')
+}
+;(function() {
+  if (localStorage.getItem('theme') === 'dark') {
+    document.body.classList.add('dark')
+    const icon = document.getElementById('theme-icon')
+    const label = document.getElementById('theme-label')
+    if (icon) icon.textContent = '☀️'
+    if (label) label.textContent = 'Modo claro'
+  }
+})()
+
 // ── PERFIL ──
 async function loadPerfil() {
   const { data } = await sb.from('perfis').select('*').eq('id', currentUser.id).single()
@@ -992,10 +1027,14 @@ async function handleExcel(e) {
       body: JSON.stringify({ excel: rows.slice(0, 50) })
     })
     const mapped = await resp.json()
+    if (!resp.ok || mapped.error) {
+      preview.innerHTML = `<p style="color:var(--red)">Erro da IA: ${mapped.error || resp.status}</p>`
+      return
+    }
     const arr = Array.isArray(mapped) ? mapped : []
-    if (!arr.length) { preview.innerHTML = '<p style="color:var(--red)">Não foi possível mapear os dados.</p>'; return }
+    if (!arr.length) { preview.innerHTML = '<p style="color:var(--red)">Não foi possível mapear os dados. Verifique se a planilha tem colunas de pedido e valor.</p>'; return }
     renderExcelPreview(arr)
-  } catch { preview.innerHTML = '<p style="color:var(--red)">Erro ao processar Excel.</p>' }
+  } catch (err) { preview.innerHTML = `<p style="color:var(--red)">Erro ao processar Excel: ${err.message}</p>` }
 }
 
 let excelRows = []
