@@ -43,10 +43,13 @@ body { font-family: -apple-system, 'Segoe UI', sans-serif; background: var(--bg)
 
 /* ── LOGIN ── */
 #page-login { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 1rem; }
-.login-card { background: var(--surface); backdrop-filter: blur(20px); border: 1px solid var(--border); border-radius: 20px; padding: 2.5rem; width: 100%; max-width: 400px; box-shadow: var(--shadow); }
+.login-card { background: var(--surface); backdrop-filter: blur(20px); border: 1px solid var(--border); border-radius: 20px; padding: 2.5rem; width: 100%; max-width: 420px; box-shadow: var(--shadow); }
 .login-logo { text-align: center; margin-bottom: 1.5rem; }
-.login-logo h1 { font-size: 1.6rem; font-weight: 700; background: linear-gradient(135deg, var(--green), var(--cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-.login-logo p { color: var(--text2); font-size: 0.85rem; margin-top: 0.25rem; }
+.login-logo img.sv-logo-img { max-width: 260px; width: 100%; height: auto; filter: drop-shadow(0 0 12px rgba(0,230,118,0.4)); margin-bottom: 0.25rem; }
+.login-logo p { color: var(--text2); font-size: 0.8rem; margin-top: 0.25rem; letter-spacing: 0.08em; text-transform: uppercase; }
+/* Sidebar logo */
+.sidebar-logo img.sv-logo-sm { max-width: 130px; width: 100%; height: auto; filter: drop-shadow(0 0 6px rgba(0,230,118,0.3)); display: block; margin-bottom: 2px; }
+.sidebar-logo span { font-size: 0.7rem; color: var(--text2); }
 
 /* ── APP SHELL ── */
 #app { display: none; min-height: 100vh; }
@@ -246,7 +249,15 @@ input[type=checkbox] { width: auto; cursor: pointer; accent-color: var(--green);
 <div id="page-login">
   <div class="login-card">
     <div class="login-logo">
-      <h1>Smart Vapor</h1>
+      <!-- Logo: salve o arquivo PNG em /api/logo.png ou substitua o src abaixo pelo caminho correto -->
+      <img class="sv-logo-img" src="/logo.png" alt="Smart Vapor Company"
+           onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+      <div style="display:none;margin-bottom:0.5rem;">
+        <div style="display:flex;align-items:center;justify-content:center;gap:0.2rem;">
+          <span style="font-family:'Segoe Script',cursive;font-size:1.9rem;font-weight:700;background:linear-gradient(135deg,#00e676,#00c853);-webkit-background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 0 8px #00e67655)">Smart</span>
+          <span style="font-size:1.9rem;font-weight:900;background:linear-gradient(135deg,#00c853,#00e5ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:0.05em;filter:drop-shadow(0 0 8px #00e5ff55)">VAPOR</span>
+        </div>
+      </div>
       <p>Sistema de Comissões</p>
     </div>
     <form id="form-login" style="display:flex;flex-direction:column;gap:0.75rem;">
@@ -274,7 +285,12 @@ input[type=checkbox] { width: auto; cursor: pointer; accent-color: var(--green);
   <!-- SIDEBAR -->
   <div class="sidebar" id="sidebar">
     <div class="sidebar-logo">
-      <h2>Smart Vapor</h2>
+      <img class="sv-logo-sm" src="/logo.png" alt="Smart Vapor"
+           onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+      <div style="display:none;align-items:center;gap:0.15rem;">
+        <span style="font-family:'Segoe Script',cursive;font-size:1rem;font-weight:700;background:linear-gradient(135deg,#00e676,#00c853);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Smart</span>
+        <span style="font-size:1rem;font-weight:900;background:linear-gradient(135deg,#00c853,#00e5ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">VAPOR</span>
+      </div>
       <span>Comissões</span>
     </div>
     <nav class="sidebar-nav">
@@ -641,16 +657,24 @@ document.getElementById('form-login').onsubmit = async (e) => {
   btn.disabled = true
   btn.textContent = 'Entrando...'
   errEl.style.display = 'none'
-  const { error } = await sb.auth.signInWithPassword({
-    email: document.getElementById('login-email').value,
-    password: document.getElementById('login-senha').value
-  })
-  if (error) {
-    errEl.textContent = 'E-mail ou senha inválidos.'
+  try {
+    const { error } = await sb.auth.signInWithPassword({
+      email: document.getElementById('login-email').value.trim(),
+      password: document.getElementById('login-senha').value
+    })
+    if (error) {
+      errEl.textContent = error.message === 'Invalid login credentials'
+        ? 'E-mail ou senha incorretos.'
+        : (error.message || 'Erro ao entrar. Tente novamente.')
+      errEl.style.display = 'block'
+    }
+  } catch (err) {
+    errEl.textContent = 'Erro de conexão com o servidor. Verifique sua internet.'
     errEl.style.display = 'block'
+  } finally {
+    btn.disabled = false
+    btn.textContent = 'Entrar'
   }
-  btn.disabled = false
-  btn.textContent = 'Entrar'
 }
 
 async function logout(e) {
