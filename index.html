@@ -1064,7 +1064,7 @@ async function importarExcel() {
   if (!excelRows.length) return
   // Buscar pedidos existentes para deduplicar
   const numeros = excelRows.map(r => r.numero_pedido).filter(Boolean)
-  const { data: existentes } = await sb.from('vendas').select('numero_pedido').in('numero_pedido', numeros).eq('user_id', currentUser.id)
+  const { data: existentes } = await sb.from('vendas').select('numero_pedido').in('numero_pedido', numeros)
   const existSet = new Set((existentes || []).map(e => e.numero_pedido))
   const novos = excelRows.filter(r => r.numero_pedido && !existSet.has(r.numero_pedido))
 
@@ -1076,7 +1076,7 @@ async function importarExcel() {
     telefone: String(r.telefone || ''),
     numero_pedido: String(r.numero_pedido),
     data_venda: parseDateBR(r.data_venda),
-    valor: Number(r.valor) || 0,
+    valor: normalizeValor(r.valor),
     loja: ['VAPOR','SMART'].includes(r.loja) ? r.loja : 'VAPOR',
     observacoes: r.observacoes || ''
   }))
@@ -1126,7 +1126,10 @@ async function salvarVendaForm(id) {
     toast('Preencha todos os campos obrigatórios', 'error'); return
   }
   const { error } = await sb.from('vendas').insert(venda)
-  if (error) { toast('Erro: ' + error.message, 'error'); return }
+  if (error) {
+    const msg = error.code === '23505' ? `Pedido #${venda.numero_pedido} já existe no sistema.` : 'Erro: ' + error.message
+    toast(msg, 'error'); return
+  }
   toast('Venda salva!', 'success')
 }
 
@@ -1147,7 +1150,10 @@ async function salvarVendaManual(e) {
   btn.disabled = true; btn.textContent = '⏳ Salvando...'
   const { error } = await sb.from('vendas').insert(venda)
   btn.disabled = false; btn.textContent = '💾 Salvar Venda'
-  if (error) { toast('Erro: ' + error.message, 'error'); return }
+  if (error) {
+    const msg = error.code === '23505' ? `Pedido #${venda.numero_pedido} já existe no sistema.` : 'Erro: ' + error.message
+    toast(msg, 'error'); return
+  }
   toast('Venda salva com sucesso!', 'success')
   e.target.reset()
 }
@@ -1407,6 +1413,18 @@ async function trocarSenha() {
 // ── UTILS ──
 function brl(val) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(val) || 0)
+}
+// Normaliza valor: "144,14" → 144.14 | "1.414,00" → 1414.0 | "R$ 144,14" → 144.14
+function normalizeValor(v) {
+  if (typeof v === 'number' && !isNaN(v)) return v
+  const s = String(v).replace(/[R$\s]/g, '').trim()
+  // Formato BR com ponto de milhar: 1.414,00 → 1414.00
+  if (/^\d{1,3}(\.\d{3})+(,\d{1,2})?$/.test(s))
+    return parseFloat(s.replace(/\./g, '').replace(',', '.'))
+  // Vírgula como decimal: 144,14 → 144.14
+  if (/^\d+(,\d{1,2})$/.test(s))
+    return parseFloat(s.replace(',', '.'))
+  return parseFloat(s) || 0
 }
 function formatDate(d) {
   if (!d) return '—'
