@@ -9,20 +9,20 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 :root {
-  --green: #00e676;
-  --green2: #00c853;
-  --cyan: #00e5ff;
-  --red: #ff5252;
-  --yellow: #ffd740;
-  --bg: #0a0e1a;
-  --bg2: #111827;
-  --surface: rgba(255,255,255,0.05);
-  --surface2: rgba(255,255,255,0.08);
-  --border: rgba(255,255,255,0.1);
-  --text: #e2e8f0;
-  --text2: #94a3b8;
+  --green: #00a846;
+  --green2: #007d34;
+  --cyan: #0077b6;
+  --red: #e03131;
+  --yellow: #e67700;
+  --bg: #f4f6f9;
+  --bg2: #ffffff;
+  --surface: rgba(0,0,0,0.04);
+  --surface2: rgba(0,0,0,0.07);
+  --border: rgba(0,0,0,0.1);
+  --text: #1a1d23;
+  --text2: #5c6370;
   --radius: 12px;
-  --shadow: 0 4px 24px rgba(0,0,0,0.4);
+  --shadow: 0 2px 16px rgba(0,0,0,0.08);
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: -apple-system, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; transition: background 0.3s, color 0.3s; }
@@ -33,8 +33,8 @@ body { font-family: -apple-system, 'Segoe UI', sans-serif; background: var(--bg)
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
 /* ── LOGIN ── */
-#page-login { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 1rem; }
-.login-card { background: var(--surface); backdrop-filter: blur(20px); border: 1px solid var(--border); border-radius: 20px; padding: 2.5rem; width: 100%; max-width: 420px; box-shadow: var(--shadow); }
+#page-login { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 1rem; background: linear-gradient(135deg, #e8f5e9 0%, #e3f2fd 100%); }
+.login-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 20px; padding: 2.5rem; width: 100%; max-width: 420px; box-shadow: 0 8px 32px rgba(0,0,0,0.12); }
 .login-logo { text-align: center; margin-bottom: 1.5rem; }
 .login-logo img.sv-logo-img { max-width: 260px; width: 100%; height: auto; filter: drop-shadow(0 0 12px rgba(0,230,118,0.4)); margin-bottom: 0.25rem; }
 .login-logo p { color: var(--text2); font-size: 0.8rem; margin-top: 0.25rem; letter-spacing: 0.08em; text-transform: uppercase; }
@@ -51,7 +51,7 @@ body { font-family: -apple-system, 'Segoe UI', sans-serif; background: var(--bg)
 .sidebar-nav { flex: 1; padding: 0.75rem 0; overflow-y: auto; }
 .nav-item { display: flex; align-items: center; gap: 0.65rem; padding: 0.65rem 1rem; cursor: pointer; border-radius: 8px; margin: 0 0.5rem 0.15rem; color: var(--text2); font-size: 0.875rem; transition: all 0.2s; }
 .nav-item:hover { background: var(--surface); color: var(--text); }
-.nav-item.active { background: rgba(0,230,118,0.15); color: var(--green); }
+.nav-item.active { background: rgba(0,168,70,0.12); color: var(--green); }
 .nav-item .icon { font-size: 1rem; width: 20px; text-align: center; }
 .sidebar-footer { padding: 1rem; border-top: 1px solid var(--border); }
 .user-info { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem; border-radius: 8px; cursor: pointer; transition: background 0.2s; }
@@ -82,7 +82,7 @@ body { font-family: -apple-system, 'Segoe UI', sans-serif; background: var(--bg)
 /* ── FILTROS ── */
 .filter-bar { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
 .filter-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text2); padding: 0.35rem 0.85rem; border-radius: 20px; cursor: pointer; font-size: 0.8rem; transition: all 0.2s; }
-.filter-btn:hover, .filter-btn.active { background: rgba(0,230,118,0.15); color: var(--green); border-color: var(--green); }
+.filter-btn:hover, .filter-btn.active { background: rgba(0,168,70,0.12); color: var(--green); border-color: var(--green); }
 select.filter-btn { appearance: none; padding-right: 1.5rem; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2394a3b8'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; }
 
 /* ── CHARTS ── */
@@ -172,8 +172,8 @@ tbody tr { border-top: 1px solid var(--border); transition: background 0.15s; }
 tbody tr:hover { background: var(--surface); }
 tbody td { padding: 0.65rem 0.75rem; vertical-align: middle; }
 .status-badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 0.7rem; font-weight: 600; }
-.status-pago { background: rgba(0,230,118,0.15); color: var(--green); }
-.status-ativa { background: rgba(0,229,255,0.15); color: var(--cyan); }
+.status-pago { background: rgba(0,168,70,0.12); color: var(--green); }
+.status-ativa { background: rgba(0,119,182,0.12); color: var(--cyan); }
 .status-cancelada { background: rgba(255,82,82,0.15); color: var(--red); }
 .loja-badge { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; }
 .loja-VAPOR { background: rgba(0,230,118,0.2); color: var(--green); }
@@ -647,10 +647,14 @@ document.getElementById('form-login').onsubmit = async (e) => {
   btn.textContent = 'Entrando...'
   errEl.style.display = 'none'
   try {
-    const { error } = await sb.auth.signInWithPassword({
+    const loginPromise = sb.auth.signInWithPassword({
       email: document.getElementById('login-email').value.trim(),
       password: document.getElementById('login-senha').value
     })
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('timeout')), 10000)
+    )
+    const { error } = await Promise.race([loginPromise, timeout])
     if (error) {
       errEl.textContent = error.message === 'Invalid login credentials'
         ? 'E-mail ou senha incorretos.'
@@ -658,7 +662,9 @@ document.getElementById('form-login').onsubmit = async (e) => {
       errEl.style.display = 'block'
     }
   } catch (err) {
-    errEl.textContent = 'Erro de conexão com o servidor. Verifique sua internet.'
+    errEl.textContent = err.message === 'timeout'
+      ? 'Tempo esgotado. Verifique sua internet e tente novamente.'
+      : 'Erro de conexão com o servidor. Verifique sua internet.'
     errEl.style.display = 'block'
   } finally {
     btn.disabled = false
@@ -840,7 +846,7 @@ function renderChartDia(vendas) {
     type: 'bar',
     data: {
       labels: labels.map(d => d.slice(5)),
-      datasets: [{ data: values, backgroundColor: 'rgba(0,230,118,0.6)', borderColor: '#00e676', borderWidth: 1, borderRadius: 4 }]
+      datasets: [{ data: values, backgroundColor: 'rgba(0,168,70,0.7)', borderColor: '#00a846', borderWidth: 1, borderRadius: 4 }]
     },
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { color: '#94a3b8', callback: v => 'R$' + v }, grid: { color: 'rgba(255,255,255,0.05)' } }, x: { ticks: { color: '#94a3b8' }, grid: { display: false } } } }
   })
@@ -852,7 +858,7 @@ function renderChartLoja(vapor, smart) {
     type: 'doughnut',
     data: {
       labels: ['VAPOR', 'SMART'],
-      datasets: [{ data: [vapor, smart], backgroundColor: ['rgba(0,230,118,0.7)', 'rgba(0,229,255,0.7)'], borderColor: ['#00e676', '#00e5ff'], borderWidth: 2 }]
+      datasets: [{ data: [vapor, smart], backgroundColor: ['rgba(0,168,70,0.8)', 'rgba(0,119,182,0.8)'], borderColor: ['#00a846', '#0077b6'], borderWidth: 2 }]
     },
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#94a3b8', boxWidth: 12 } } } }
   })
@@ -1261,7 +1267,7 @@ async function loadRelatorio() {
     type: 'doughnut',
     data: {
       labels: ['VAPOR', 'SMART'],
-      datasets: [{ data: [vapor, smart], backgroundColor: ['rgba(0,230,118,0.7)', 'rgba(0,229,255,0.7)'], borderColor: ['#00e676', '#00e5ff'], borderWidth: 2 }]
+      datasets: [{ data: [vapor, smart], backgroundColor: ['rgba(0,168,70,0.8)', 'rgba(0,119,182,0.8)'], borderColor: ['#00a846', '#0077b6'], borderWidth: 2 }]
     },
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#94a3b8' } } } }
   })
@@ -1274,7 +1280,7 @@ async function loadRelatorio() {
     type: 'line',
     data: {
       labels: dias.map(d => d.slice(5)),
-      datasets: [{ data: dias.map(d => mapDia[d]), borderColor: '#00e5ff', backgroundColor: 'rgba(0,229,255,0.1)', tension: 0.4, fill: true, pointRadius: 3 }]
+      datasets: [{ data: dias.map(d => mapDia[d]), borderColor: '#0077b6', backgroundColor: 'rgba(0,119,182,0.1)', tension: 0.4, fill: true, pointRadius: 3 }]
     },
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } }, x: { ticks: { color: '#94a3b8' }, grid: { display: false } } } }
   })
