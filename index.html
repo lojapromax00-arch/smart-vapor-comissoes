@@ -422,9 +422,9 @@ input[type=checkbox] { width: auto; cursor: pointer; accent-color: var(--green);
 
       <!-- TAB EXCEL -->
       <div class="tab-content" id="nv-tab-excel">
-        <div style="margin-bottom:0.85rem;display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
-          <span style="font-weight:600;color:var(--text);font-size:0.9rem;">Loja dos pedidos:</span>
-          <div style="display:flex;gap:0.75rem;">
+        <div style="margin-bottom:0.85rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:0.75rem;">
+            <span style="font-weight:600;color:var(--text);font-size:0.9rem;">Loja:</span>
             <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;font-size:0.9rem;">
               <input type="radio" name="excel-loja" id="excel-loja-vapor" value="VAPOR" checked>
               <span style="font-weight:700;color:var(--green);">VAPOR</span>
@@ -434,6 +434,10 @@ input[type=checkbox] { width: auto; cursor: pointer; accent-color: var(--green);
               <span style="font-weight:700;color:var(--cyan);">SMART</span>
             </label>
           </div>
+          <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.85rem;color:var(--text2);border-left:1px solid var(--border);padding-left:1rem;">
+            <input type="checkbox" id="excel-centavos">
+            <span>Valores em centavos <span style="opacity:0.6">(÷100)</span></span>
+          </label>
         </div>
         <div class="upload-zone" onclick="document.getElementById('input-excel').click()">
           <div style="font-size:2rem">📊</div>
@@ -1090,13 +1094,14 @@ async function importarExcel() {
     if (!novos.length) { toast('Todos os pedidos já existem (deduplicados)', 'info'); return }
 
     const lojaForcada = document.querySelector('input[name="excel-loja"]:checked')?.value || 'VAPOR'
+    const centavos = document.getElementById('excel-centavos')?.checked || false
     const toInsert = novos.map(r => ({
       user_id: currentUser.id,
       nome_cliente: r.nome_cliente || 'Desconhecido',
       telefone: String(r.telefone || ''),
       numero_pedido: String(r.numero_pedido),
       data_venda: parseDateBR(r.data_venda),
-      valor: normalizeValor(r.valor),
+      valor: centavos ? Math.round(normalizeValor(r.valor)) / 100 : normalizeValor(r.valor),
       loja: lojaForcada,
       observacoes: r.observacoes || ''
     }))
