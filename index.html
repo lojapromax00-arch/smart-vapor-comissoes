@@ -1057,7 +1057,7 @@ function renderExcelPreview(rows) {
   preview.innerHTML = `
     <div class="section-header">
       <span style="font-size:0.8rem;color:var(--text2)">${rows.length} registros mapeados pela IA</span>
-      <button class="btn btn-primary btn-sm" onclick="importarExcel()">⬆️ Importar todos</button>
+      <button class="btn btn-primary btn-sm" id="btn-importar-excel" onclick="importarExcel()">⬆️ Importar todos</button>
     </div>
     <div class="table-wrap">
       <table>
@@ -1075,31 +1075,42 @@ function renderExcelPreview(rows) {
 
 async function importarExcel() {
   if (!excelRows.length) return
-  // Buscar pedidos existentes para deduplicar
-  const numeros = excelRows.map(r => r.numero_pedido).filter(Boolean)
-  const { data: existentes } = await sb.from('vendas').select('numero_pedido').in('numero_pedido', numeros)
-  const existSet = new Set((existentes || []).map(e => e.numero_pedido))
-  const novos = excelRows.filter(r => r.numero_pedido && !existSet.has(r.numero_pedido))
+  const btn = document.getElementById('btn-importar-excel')
+  if (btn) { btn.disabled = true; btn.textContent = 'Importando...' }
+  try {
+    // Buscar pedidos existentes para deduplicar
+    const numeros = excelRows.map(r => r.numero_pedido).filter(Boolean)
+    let existSet = new Set()
+    if (numeros.length) {
+      const { data: existentes } = await sb.from('vendas').select('numero_pedido').in('numero_pedido', numeros)
+      existSet = new Set((existentes || []).map(e => e.numero_pedido))
+    }
+    const novos = excelRows.filter(r => r.numero_pedido && !existSet.has(r.numero_pedido))
 
-  if (!novos.length) { toast('Todos os pedidos já existem (deduplicados)', 'info'); return }
+    if (!novos.length) { toast('Todos os pedidos já existem (deduplicados)', 'info'); return }
 
-  const lojaForcada = document.querySelector('input[name="excel-loja"]:checked')?.value || 'VAPOR'
-  const toInsert = novos.map(r => ({
-    user_id: currentUser.id,
-    nome_cliente: r.nome_cliente || 'Desconhecido',
-    telefone: String(r.telefone || ''),
-    numero_pedido: String(r.numero_pedido),
-    data_venda: parseDateBR(r.data_venda),
-    valor: normalizeValor(r.valor),
-    loja: lojaForcada,
-    observacoes: r.observacoes || ''
-  }))
+    const lojaForcada = document.querySelector('input[name="excel-loja"]:checked')?.value || 'VAPOR'
+    const toInsert = novos.map(r => ({
+      user_id: currentUser.id,
+      nome_cliente: r.nome_cliente || 'Desconhecido',
+      telefone: String(r.telefone || ''),
+      numero_pedido: String(r.numero_pedido),
+      data_venda: parseDateBR(r.data_venda),
+      valor: normalizeValor(r.valor),
+      loja: lojaForcada,
+      observacoes: r.observacoes || ''
+    }))
 
-  const { error } = await sb.from('vendas').insert(toInsert)
-  if (error) { toast('Erro ao importar: ' + error.message, 'error'); return }
-  toast(`${novos.length} vendas importadas! (${excelRows.length - novos.length} duplicadas ignoradas)`, 'success')
-  document.getElementById('excel-preview').innerHTML = ''
-  excelRows = []
+    const { error } = await sb.from('vendas').insert(toInsert)
+    if (error) { toast('Erro ao importar: ' + error.message, 'error'); return }
+    toast(`${novos.length} vendas importadas! (${excelRows.length - novos.length} duplicadas ignoradas)`, 'success')
+    document.getElementById('excel-preview').innerHTML = ''
+    excelRows = []
+  } catch (err) {
+    toast('Erro inesperado: ' + err.message, 'error')
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '⬆️ Importar todos' }
+  }
 }
 
 // ── FORM DE VENDA ──
