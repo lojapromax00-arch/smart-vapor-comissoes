@@ -1055,10 +1055,41 @@ async function handleExcel(e) {
 }
 
 let excelRows = []
+
+function renderExcelTabela(rows) {
+  const div100 = document.getElementById('excel-centavos')?.checked || false
+  return rows.map(r => {
+    const v = div100 ? normalizeValor(r.valor) / 100 : normalizeValor(r.valor)
+    return `<tr>
+      <td>${r.numero_pedido||'—'}</td>
+      <td>${r.nome_cliente||'—'}</td>
+      <td>${r.data_venda||'—'}</td>
+      <td>${v ? brl(v) : '—'}</td>
+      <td><span class="loja-badge loja-${(r.loja||'').toUpperCase()}">${r.loja||'—'}</span></td>
+    </tr>`
+  }).join('')
+}
+
 function renderExcelPreview(rows) {
   excelRows = rows
+
+  // Auto-detectar centavos: todos inteiros e média > 5000
+  const vals = rows.map(r => normalizeValor(r.valor)).filter(v => v > 0)
+  const todosInteiros = vals.length > 0 && vals.every(v => v === Math.round(v))
+  const media = vals.reduce((a, b) => a + b, 0) / (vals.length || 1)
+  const autoCentavos = todosInteiros && media > 5000
+  const cb = document.getElementById('excel-centavos')
+  if (cb) cb.checked = autoCentavos
+
+  const aviso = autoCentavos
+    ? `<div style="background:rgba(230,119,0,0.12);border:1px solid rgba(230,119,0,0.3);border-radius:8px;padding:0.5rem 0.75rem;margin-bottom:0.75rem;font-size:0.8rem;color:var(--yellow);">
+        ⚠️ Valores detectados em centavos — aplicando ÷100 automaticamente. Desmarque o checkbox se estiver errado.
+       </div>`
+    : ''
+
   const preview = document.getElementById('excel-preview')
   preview.innerHTML = `
+    ${aviso}
     <div class="section-header">
       <span style="font-size:0.8rem;color:var(--text2)">${rows.length} registros mapeados pela IA</span>
       <button class="btn btn-primary btn-sm" id="btn-importar-excel" onclick="importarExcel()">⬆️ Importar todos</button>
@@ -1066,15 +1097,15 @@ function renderExcelPreview(rows) {
     <div class="table-wrap">
       <table>
         <thead><tr><th>Pedido</th><th>Cliente</th><th>Data</th><th>Valor</th><th>Loja</th></tr></thead>
-        <tbody>${rows.map(r => `<tr>
-          <td>${r.numero_pedido||'—'}</td>
-          <td>${r.nome_cliente||'—'}</td>
-          <td>${r.data_venda||'—'}</td>
-          <td>${r.valor ? brl(r.valor) : '—'}</td>
-          <td><span class="loja-badge loja-${r.loja}">${r.loja||'—'}</span></td>
-        </tr>`).join('')}</tbody>
+        <tbody id="excel-tbody">${renderExcelTabela(rows)}</tbody>
       </table>
     </div>`
+
+  // Re-renderizar tabela ao mudar checkbox
+  document.getElementById('excel-centavos').onchange = () => {
+    const tbody = document.getElementById('excel-tbody')
+    if (tbody) tbody.innerHTML = renderExcelTabela(excelRows)
+  }
 }
 
 async function importarExcel() {
