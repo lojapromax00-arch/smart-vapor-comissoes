@@ -627,10 +627,12 @@ let relData = []
 sb.auth.onAuthStateChange(async (event, session) => {
   if (session) {
     currentUser = session.user
-    await loadPerfil()
+    // Mostra o app imediatamente, sem esperar o perfil carregar
     document.getElementById('page-login').style.display = 'none'
     document.getElementById('app').style.display = 'block'
     showPage('dashboard')
+    // Carrega perfil em background
+    try { await loadPerfil() } catch (err) { console.error('loadPerfil:', err) }
   } else {
     currentUser = null
     currentPerfil = null
