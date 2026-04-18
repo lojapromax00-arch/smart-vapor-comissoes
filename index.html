@@ -50,17 +50,19 @@ body { font-family: -apple-system, 'Segoe UI', sans-serif; background: var(--bg)
 .dark #page-login { background: #0a0e1a; }
 .dark .login-card { background: #111827; }
 .login-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 20px; padding: 2.5rem; width: 100%; max-width: 420px; box-shadow: 0 8px 32px rgba(0,0,0,0.12); }
-.login-logo { text-align: center; margin-bottom: 1.5rem; }
-.login-logo img.sv-logo-img { max-width: 260px; width: 100%; height: auto; filter: drop-shadow(0 0 12px rgba(0,230,118,0.4)); margin-bottom: 0.25rem; }
-.login-logo p { color: var(--text2); font-size: 0.8rem; margin-top: 0.25rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.login-logo { text-align: center; margin-bottom: 1.5rem; background: linear-gradient(135deg, #0d1f0f, #0a1520); border-radius: 12px; padding: 0.85rem 1rem 0.6rem; }
+.login-logo img.sv-logo-img { max-width: 220px; width: 100%; height: auto; filter: drop-shadow(0 0 10px rgba(0,230,118,0.5)); margin-bottom: 0.25rem; }
+.login-logo p { color: rgba(255,255,255,0.55); font-size: 0.78rem; margin-top: 0.25rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.dark .login-logo { background: transparent; padding: 0 0 0.25rem; }
 /* Sidebar logo */
-.sidebar-logo img.sv-logo-sm { max-width: 130px; width: 100%; height: auto; filter: drop-shadow(0 0 6px rgba(0,230,118,0.3)); display: block; margin-bottom: 2px; }
+.sidebar-logo img.sv-logo-sm { max-width: 120px; width: 100%; height: auto; filter: drop-shadow(0 0 6px rgba(0,230,118,0.4)); display: block; margin-bottom: 2px; }
 .sidebar-logo span { font-size: 0.7rem; color: var(--text2); }
 
 /* ── APP SHELL ── */
 #app { display: none; min-height: 100vh; }
 .sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: 220px; background: var(--bg2); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 100; transition: transform 0.3s; }
-.sidebar-logo { padding: 1.25rem 1rem; border-bottom: 1px solid var(--border); }
+.sidebar-logo { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); background: linear-gradient(135deg, #0d1f0f, #0a1520); }
+.dark .sidebar-logo { background: transparent; padding: 1.25rem 1rem; }
 .sidebar-logo h2 { font-size: 1rem; font-weight: 700; background: linear-gradient(135deg, var(--green), var(--cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 .sidebar-logo span { font-size: 0.75rem; color: var(--text2); }
 .sidebar-nav { flex: 1; padding: 0.75rem 0; overflow-y: auto; }
@@ -422,6 +424,19 @@ input[type=checkbox] { width: auto; cursor: pointer; accent-color: var(--green);
 
       <!-- TAB EXCEL -->
       <div class="tab-content" id="nv-tab-excel">
+        <div style="margin-bottom:0.85rem;display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+          <span style="font-weight:600;color:var(--text);font-size:0.9rem;">Loja dos pedidos:</span>
+          <div style="display:flex;gap:0.75rem;">
+            <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;font-size:0.9rem;">
+              <input type="radio" name="excel-loja" id="excel-loja-vapor" value="VAPOR" checked>
+              <span style="font-weight:700;color:var(--green);">VAPOR</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;font-size:0.9rem;">
+              <input type="radio" name="excel-loja" id="excel-loja-smart" value="SMART">
+              <span style="font-weight:700;color:var(--cyan);">SMART</span>
+            </label>
+          </div>
+        </div>
         <div class="upload-zone" onclick="document.getElementById('input-excel').click()">
           <div style="font-size:2rem">📊</div>
           <p>Clique para selecionar Excel ou CSV</p>
@@ -1070,6 +1085,7 @@ async function importarExcel() {
 
   if (!novos.length) { toast('Todos os pedidos já existem (deduplicados)', 'info'); return }
 
+  const lojaForcada = document.querySelector('input[name="excel-loja"]:checked')?.value || 'VAPOR'
   const toInsert = novos.map(r => ({
     user_id: currentUser.id,
     nome_cliente: r.nome_cliente || 'Desconhecido',
@@ -1077,7 +1093,7 @@ async function importarExcel() {
     numero_pedido: String(r.numero_pedido),
     data_venda: parseDateBR(r.data_venda),
     valor: normalizeValor(r.valor),
-    loja: ['VAPOR','SMART'].includes(r.loja) ? r.loja : 'VAPOR',
+    loja: lojaForcada,
     observacoes: r.observacoes || ''
   }))
 
