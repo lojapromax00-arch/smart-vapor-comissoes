@@ -1108,6 +1108,13 @@ function renderExcelPreview(rows) {
   }
 }
 
+function sbTimeout(promise, ms = 20000) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout — verifique sua conexão')), ms))
+  ])
+}
+
 async function importarExcel() {
   if (!excelRows.length) return
   const btn = document.getElementById('btn-importar-excel')
@@ -1117,7 +1124,10 @@ async function importarExcel() {
     const numeros = excelRows.map(r => r.numero_pedido).filter(Boolean)
     let existSet = new Set()
     if (numeros.length) {
-      const { data: existentes } = await sb.from('vendas').select('numero_pedido').in('numero_pedido', numeros)
+      const { data: existentes, error: errSel } = await sbTimeout(
+        sb.from('vendas').select('numero_pedido').in('numero_pedido', numeros)
+      )
+      if (errSel) throw new Error(errSel.message)
       existSet = new Set((existentes || []).map(e => e.numero_pedido))
     }
     const novos = excelRows.filter(r => r.numero_pedido && !existSet.has(r.numero_pedido))
@@ -1137,13 +1147,22 @@ async function importarExcel() {
       observacoes: r.observacoes || ''
     }))
 
-    const { error } = await sb.from('vendas').insert(toInsert)
-    if (error) { toast('Erro ao importar: ' + error.message, 'error'); return }
-    toast(`${novos.length} vendas importadas! (${excelRows.length - novos.length} duplicadas ignoradas)`, 'success')
+    // Inserir em lotes de 10 para evitar timeout
+    const BATCH = 10
+    let inseridos = 0
+    for (let i = 0; i < toInsert.length; i += BATCH) {
+      const lote = toInsert.slice(i, i + BATCH)
+      if (btn) btn.textContent = `Importando ${Math.min(i + BATCH, toInsert.length)}/${toInsert.length}...`
+      const { error } = await sbTimeout(sb.from('vendas').insert(lote))
+      if (error) { toast('Erro ao importar lote: ' + error.message, 'error'); return }
+      inseridos += lote.length
+    }
+
+    toast(`${inseridos} vendas importadas! (${excelRows.length - novos.length} duplicadas ignoradas)`, 'success')
     document.getElementById('excel-preview').innerHTML = ''
     excelRows = []
   } catch (err) {
-    toast('Erro inesperado: ' + err.message, 'error')
+    toast('Erro: ' + err.message, 'error')
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '⬆️ Importar todos' }
   }
