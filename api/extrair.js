@@ -62,7 +62,7 @@ ${texto}`
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 2000,
+        max_tokens: 8000,
         messages
       })
     })
@@ -74,7 +74,17 @@ ${texto}`
     const text = data.content?.[0]?.text || (excel ? '[]' : '{}')
     const clean = text.replace(/```json|```/g, '').trim()
 
-    return res.status(200).json(JSON.parse(clean))
+    try {
+      return res.status(200).json(JSON.parse(clean))
+    } catch {
+      // JSON cortado — tentar recuperar objetos completos do array
+      if (excel) {
+        const matches = clean.match(/\{[^{}]+\}/g) || []
+        const recovered = matches.map(m => { try { return JSON.parse(m) } catch { return null } }).filter(Boolean)
+        return res.status(200).json(recovered)
+      }
+      return res.status(200).json({ error: 'Não foi possível extrair os dados' })
+    }
   } catch (err) {
     return res.status(200).json(excel ? [] : { error: 'Não foi possível extrair os dados' })
   }
