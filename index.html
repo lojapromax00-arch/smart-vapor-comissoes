@@ -859,24 +859,30 @@ async function loadDashboard() {
   document.getElementById('c-vapor').textContent = brl(vapor)
   document.getElementById('c-smart').textContent = brl(smart)
 
-  // Meta mensal — baseada na comissão do mês atual
+  // Meta mensal — comissão do mês atual
   const now = new Date()
   const mesFrom = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`
-  let qMes = sb.from('vendas').select('valor_comissao').neq('status','cancelada').gte('data_venda', mesFrom)
-  if (vendedorId) qMes = qMes.eq('user_id', vendedorId)
-  const { data: mesSales } = await qMes
-  const comissaoMes = (mesSales || []).reduce((s, v) => s + Number(v.valor_comissao), 0)
+  // Reusa vendas já carregadas se o período já é "mes", senão faz query extra
+  let comissaoMes
+  if (dashPeriod === 'mes') {
+    comissaoMes = comissao
+  } else {
+    let qMes = sb.from('vendas').select('valor_comissao').neq('status','cancelada').gte('data_venda', mesFrom)
+    if (vendedorId) qMes = qMes.eq('user_id', vendedorId)
+    const { data: mesSales } = await sbTimeout(qMes, 12000).catch(() => ({ data: [] }))
+    comissaoMes = (mesSales || []).reduce((s, v) => s + Number(v.valor_comissao), 0)
+  }
   const pct = Math.min(100, (comissaoMes / META_MENSAL) * 100)
   document.getElementById('meta-pct').textContent = pct.toFixed(1) + '%'
   document.getElementById('meta-fill').style.width = pct + '%'
   document.getElementById('meta-atual').textContent = brl(comissaoMes)
 
-  // Comparativo — baseado em comissão
+  // Comparativo — comissão mês anterior
   const mesAntFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0]
   const mesAntTo = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0]
   let qAnt = sb.from('vendas').select('valor_comissao').neq('status','cancelada').gte('data_venda', mesAntFrom).lte('data_venda', mesAntTo)
   if (vendedorId) qAnt = qAnt.eq('user_id', vendedorId)
-  const { data: antSales } = await qAnt
+  const { data: antSales } = await sbTimeout(qAnt, 12000).catch(() => ({ data: [] }))
   const comissaoAnt = (antSales || []).reduce((s, v) => s + Number(v.valor_comissao), 0)
   const delta = comissaoAnt > 0 ? ((comissaoMes - comissaoAnt) / comissaoAnt) * 100 : 0
   const compEl = document.getElementById('comp-texto')
