@@ -711,7 +711,16 @@ document.getElementById('form-login').onsubmit = async (e) => {
 
 async function logout(e) {
   e.stopPropagation()
-  await sb.auth.signOut()
+  try {
+    await Promise.race([
+      sb.auth.signOut(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000))
+    ])
+  } catch {}
+  // Força limpeza e reload mesmo se signOut travar
+  localStorage.clear()
+  sessionStorage.clear()
+  location.reload()
 }
 
 // ── THEME ──
@@ -831,9 +840,12 @@ async function loadDashboard() {
   let q = sb.from('vendas').select('*').neq('status','cancelada')
   if (from) q = q.gte('data_venda', from).lte('data_venda', to)
   if (vendedorId) q = q.eq('user_id', vendedorId)
-  const { data: vendas } = await q
+  const { data: vendas, error: errDash } = await sbTimeout(q, 15000).catch(() => ({ data: null, error: { message: 'timeout' } }))
 
-  if (!vendas) return
+  if (!vendas) {
+    if (errDash) toast('Erro ao carregar dashboard: ' + errDash.message, 'error')
+    return
+  }
 
   const total = vendas.reduce((s, v) => s + Number(v.valor), 0)
   const comissao = vendas.reduce((s, v) => s + Number(v.valor_comissao), 0)
