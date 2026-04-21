@@ -333,9 +333,9 @@ input[type=checkbox] { width: auto; cursor: pointer; accent-color: var(--green);
         </div>
       </div>
       <div class="filter-bar" id="dash-filter-bar">
-        <button class="filter-btn active" data-period="hoje" onclick="setPeriod(this,'hoje')">Hoje</button>
+        <button class="filter-btn" data-period="hoje" onclick="setPeriod(this,'hoje')">Hoje</button>
         <button class="filter-btn" data-period="semana" onclick="setPeriod(this,'semana')">Esta semana</button>
-        <button class="filter-btn" data-period="mes" onclick="setPeriod(this,'mes')">Este mês</button>
+        <button class="filter-btn active" data-period="mes" onclick="setPeriod(this,'mes')">Este mês</button>
         <button class="filter-btn" data-period="tudo" onclick="setPeriod(this,'tudo')">Tudo</button>
       </div>
       <div class="cards" id="dash-cards">
@@ -650,7 +650,7 @@ const META_MENSAL = 3000
 // ── STATE ──
 let currentUser = null
 let currentPerfil = null
-let dashPeriod = 'hoje'
+let dashPeriod = 'mes'
 let chartDia = null
 let chartLoja = null
 let relChartLoja = null
