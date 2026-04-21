@@ -35,7 +35,7 @@ Retorne SOMENTE um array JSON válido sem markdown, com objetos no formato:
 Regras:
 - loja deve ser "VAPOR" ou "SMART" (maiúsculas). Se não identificável, use "VAPOR".
 - data_venda no formato DD/MM/YYYY
-- valor: retorne SEMPRE como número decimal com ponto. Exemplos: "144,14" → 144.14 | "R$ 1.414,00" → 1414.0 | "14414" → 14414.0. NUNCA remova casas decimais.
+- valor: use SOMENTE o valor da coluna "Total" (valor final do pedido). NUNCA use valores de parcelas, fretes ou valores mencionados em textos de observações/comentários (ex: "Pedido em 3 vezes de R$ X" — ignore o X, use o Total). Retorne como número decimal com ponto: "522,97" → 522.97 | "R$ 1.414,00" → 1414.0 | "14414" → 14414.0. NUNCA remova casas decimais.
 - telefone: manter como string
 - Ignorar linhas sem número de pedido ou valor`
     })
