@@ -1120,45 +1120,49 @@ async function importarExcel() {
   const btn = document.getElementById('btn-importar-excel')
   if (btn) { btn.disabled = true; btn.textContent = 'Importando...' }
   try {
-    // Buscar pedidos existentes para deduplicar
-    const numeros = excelRows.map(r => r.numero_pedido).filter(Boolean)
-    let existSet = new Set()
-    if (numeros.length) {
-      const { data: existentes, error: errSel } = await sbTimeout(
-        sb.from('vendas').select('numero_pedido').in('numero_pedido', numeros)
-      )
-      if (errSel) throw new Error(errSel.message)
-      existSet = new Set((existentes || []).map(e => e.numero_pedido))
-    }
-    const novos = excelRows.filter(r => r.numero_pedido && !existSet.has(r.numero_pedido))
-
-    if (!novos.length) { toast('Todos os pedidos já existem (deduplicados)', 'info'); return }
-
     const lojaForcada = document.querySelector('input[name="excel-loja"]:checked')?.value || 'VAPOR'
     const centavos = document.getElementById('excel-centavos')?.checked || false
-    const toInsert = novos.map(r => ({
-      user_id: currentUser.id,
-      nome_cliente: r.nome_cliente || 'Desconhecido',
-      telefone: String(r.telefone || ''),
-      numero_pedido: String(r.numero_pedido),
-      data_venda: parseDateBR(r.data_venda),
-      valor: centavos ? Math.round(normalizeValor(r.valor)) / 100 : normalizeValor(r.valor),
-      loja: lojaForcada,
-      observacoes: r.observacoes || ''
-    }))
 
-    // Inserir em lotes de 10 para evitar timeout
+    const toInsert = excelRows
+      .filter(r => r.numero_pedido)
+      .map(r => ({
+        user_id: currentUser.id,
+        nome_cliente: r.nome_cliente || 'Desconhecido',
+        telefone: String(r.telefone || ''),
+        numero_pedido: String(r.numero_pedido),
+        data_venda: parseDateBR(r.data_venda),
+        valor: centavos ? Math.round(normalizeValor(r.valor)) / 100 : normalizeValor(r.valor),
+        loja: lojaForcada,
+        observacoes: r.observacoes || ''
+      }))
+
+    if (!toInsert.length) { toast('Nenhum pedido válido encontrado', 'info'); return }
+
+    // Inserir em lotes de 10 — pular duplicatas via constraint UNIQUE
+    let inseridos = 0, duplicados = 0
     const BATCH = 10
-    let inseridos = 0
     for (let i = 0; i < toInsert.length; i += BATCH) {
       const lote = toInsert.slice(i, i + BATCH)
       if (btn) btn.textContent = `Importando ${Math.min(i + BATCH, toInsert.length)}/${toInsert.length}...`
-      const { error } = await sbTimeout(sb.from('vendas').insert(lote))
-      if (error) { toast('Erro ao importar lote: ' + error.message, 'error'); return }
-      inseridos += lote.length
+      const { error } = await sbTimeout(sb.from('vendas').insert(lote), 15000)
+      if (error) {
+        if (error.code === '23505') {
+          // Lote tem duplicata — inserir um por um para pular só os duplicados
+          for (const row of lote) {
+            const { error: e } = await sbTimeout(sb.from('vendas').insert(row), 10000)
+            if (!e) inseridos++
+            else if (e.code === '23505') duplicados++
+            else throw new Error(e.message)
+          }
+        } else {
+          throw new Error(error.message)
+        }
+      } else {
+        inseridos += lote.length
+      }
     }
 
-    toast(`${inseridos} vendas importadas! (${excelRows.length - novos.length} duplicadas ignoradas)`, 'success')
+    toast(`${inseridos} vendas importadas! (${duplicados} duplicadas ignoradas)`, 'success')
     document.getElementById('excel-preview').innerHTML = ''
     excelRows = []
   } catch (err) {
