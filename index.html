@@ -859,51 +859,43 @@ async function loadDashboard() {
   document.getElementById('c-vapor').textContent = brl(vapor)
   document.getElementById('c-smart').textContent = brl(smart)
 
-  // Meta mensal — comissão do mês atual
+  // Renderiza gráficos e ranking imediatamente — não depende de queries secundárias
+  renderChartDia(vendas)
+  renderChartLoja(vapor, smart)
+  renderRanking(vendas)
+
+  // Meta e comparativo em paralelo, sem bloquear o restante
   const now = new Date()
   const mesFrom = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`
-  // Reusa vendas já carregadas se o período já é "mes", senão faz query extra
-  let comissaoMes
-  if (dashPeriod === 'mes') {
-    comissaoMes = comissao
-  } else {
-    let qMes = sb.from('vendas').select('valor_comissao').neq('status','cancelada').gte('data_venda', mesFrom)
-    if (vendedorId) qMes = qMes.eq('user_id', vendedorId)
-    const { data: mesSales } = await sbTimeout(qMes, 12000).catch(() => ({ data: [] }))
-    comissaoMes = (mesSales || []).reduce((s, v) => s + Number(v.valor_comissao), 0)
-  }
-  const pct = Math.min(100, (comissaoMes / META_MENSAL) * 100)
-  document.getElementById('meta-pct').textContent = pct.toFixed(1) + '%'
-  document.getElementById('meta-fill').style.width = pct + '%'
-  document.getElementById('meta-atual').textContent = brl(comissaoMes)
-
-  // Comparativo — comissão mês anterior
   const mesAntFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0]
   const mesAntTo = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0]
-  let qAnt = sb.from('vendas').select('valor_comissao').neq('status','cancelada').gte('data_venda', mesAntFrom).lte('data_venda', mesAntTo)
-  if (vendedorId) qAnt = qAnt.eq('user_id', vendedorId)
-  const { data: antSales } = await sbTimeout(qAnt, 12000).catch(() => ({ data: [] }))
-  const comissaoAnt = (antSales || []).reduce((s, v) => s + Number(v.valor_comissao), 0)
-  const delta = comissaoAnt > 0 ? ((comissaoMes - comissaoAnt) / comissaoAnt) * 100 : 0
-  const compEl = document.getElementById('comp-texto')
-  const deltaEl = document.getElementById('comp-delta')
-  compEl.textContent = `Este mês: ${brl(comissaoMes)} | Mês anterior: ${brl(comissaoAnt)}`
-  if (delta >= 0) {
-    deltaEl.textContent = `+${delta.toFixed(1)}%`
-    deltaEl.className = 'comp-delta up'
-  } else {
-    deltaEl.textContent = `${delta.toFixed(1)}%`
-    deltaEl.className = 'comp-delta down'
-  }
 
-  // Gráfico por dia
-  renderChartDia(vendas)
+  // Comissão do mês: reusa dados já carregados se período é "mes"
+  const comissaoMesPromise = dashPeriod === 'mes'
+    ? Promise.resolve(comissao)
+    : sbTimeout(
+        sb.from('vendas').select('valor_comissao').neq('status','cancelada').gte('data_venda', mesFrom).eq('user_id', currentUser.id),
+        10000
+      ).then(r => (r.data || []).reduce((s, v) => s + Number(v.valor_comissao), 0)).catch(() => comissao)
 
-  // Gráfico por loja
-  renderChartLoja(vapor, smart)
+  // Comissão do mês anterior
+  const comissaoAntPromise = sbTimeout(
+    sb.from('vendas').select('valor_comissao').neq('status','cancelada').gte('data_venda', mesAntFrom).lte('data_venda', mesAntTo).eq('user_id', currentUser.id),
+    10000
+  ).then(r => (r.data || []).reduce((s, v) => s + Number(v.valor_comissao), 0)).catch(() => 0)
 
-  // Ranking
-  renderRanking(vendas)
+  Promise.all([comissaoMesPromise, comissaoAntPromise]).then(([comissaoMes, comissaoAnt]) => {
+    const pct = Math.min(100, (comissaoMes / META_MENSAL) * 100)
+    document.getElementById('meta-pct').textContent = pct.toFixed(1) + '%'
+    document.getElementById('meta-fill').style.width = pct + '%'
+    document.getElementById('meta-atual').textContent = brl(comissaoMes)
+
+    const delta = comissaoAnt > 0 ? ((comissaoMes - comissaoAnt) / comissaoAnt) * 100 : 0
+    document.getElementById('comp-texto').textContent = `Este mês: ${brl(comissaoMes)} | Mês anterior: ${brl(comissaoAnt)}`
+    const deltaEl = document.getElementById('comp-delta')
+    deltaEl.textContent = delta >= 0 ? `+${delta.toFixed(1)}%` : `${delta.toFixed(1)}%`
+    deltaEl.className = delta >= 0 ? 'comp-delta up' : 'comp-delta down'
+  })
 }
 
 function renderChartDia(vendas) {
