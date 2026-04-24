@@ -133,6 +133,8 @@ select.filter-btn { appearance: none; padding-right: 1.5rem; background-image: u
 .comp-delta { font-weight: 700; }
 .comp-delta.up { color: var(--green); }
 .comp-delta.down { color: var(--red); }
+.loja-ativa-v { background: var(--green) !important; color: #fff !important; box-shadow: 0 0 10px rgba(0,168,70,.4); }
+.loja-ativa-s { background: var(--cyan) !important; color: #fff !important; box-shadow: 0 0 10px rgba(0,198,220,.4); }
 
 /* ── FORMS ── */
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
@@ -423,16 +425,21 @@ input[type=checkbox] { width: auto; cursor: pointer; accent-color: var(--green);
       <!-- TAB EXCEL -->
       <div class="tab-content" id="nv-tab-excel">
         <div style="margin-bottom:0.85rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
-          <div style="display:flex;align-items:center;gap:0.75rem;">
-            <span style="font-weight:600;color:var(--text);font-size:0.9rem;">Loja:</span>
-            <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;font-size:0.9rem;">
-              <input type="radio" name="excel-loja" id="excel-loja-vapor" value="VAPOR" checked>
-              <span style="font-weight:700;color:var(--green);">VAPOR</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;font-size:0.9rem;">
-              <input type="radio" name="excel-loja" id="excel-loja-smart" value="SMART">
-              <span style="font-weight:700;color:var(--cyan);">SMART</span>
-            </label>
+          <div style="display:flex;align-items:center;gap:0.5rem;">
+            <span style="font-weight:600;color:var(--text2);font-size:0.85rem;margin-right:0.25rem;">Loja:</span>
+            <input type="radio" name="excel-loja" id="excel-loja-vapor" value="VAPOR" checked style="display:none">
+            <input type="radio" name="excel-loja" id="excel-loja-smart" value="SMART" style="display:none">
+            <button type="button" id="btn-loja-vapor"
+              onclick="document.getElementById('excel-loja-vapor').checked=true;document.getElementById('btn-loja-vapor').classList.add('loja-ativa-v');document.getElementById('btn-loja-smart').classList.remove('loja-ativa-s')"
+              class="loja-ativa-v"
+              style="padding:0.45rem 1.2rem;border-radius:8px;border:2px solid var(--green);background:transparent;color:var(--green);font-weight:800;font-size:0.95rem;cursor:pointer;transition:all .15s;letter-spacing:.5px;">
+              🟢 VAPOR
+            </button>
+            <button type="button" id="btn-loja-smart"
+              onclick="document.getElementById('excel-loja-smart').checked=true;document.getElementById('btn-loja-smart').classList.add('loja-ativa-s');document.getElementById('btn-loja-vapor').classList.remove('loja-ativa-v')"
+              style="padding:0.45rem 1.2rem;border-radius:8px;border:2px solid var(--cyan);background:transparent;color:var(--cyan);font-weight:800;font-size:0.95rem;cursor:pointer;transition:all .15s;letter-spacing:.5px;">
+              🔵 SMART
+            </button>
           </div>
           <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.85rem;color:var(--text2);border-left:1px solid var(--border);padding-left:1rem;">
             <input type="checkbox" id="excel-centavos">
