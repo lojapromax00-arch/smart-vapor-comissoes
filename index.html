@@ -1376,7 +1376,6 @@ async function loadHistorico() {
   })
 
   document.getElementById('hist-count').textContent = `${histData.length} registros`
-  const tbody = document.getElementById('hist-tbody')
   if (!histData.length) {
     tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state"><div class="icon">📋</div>Nenhuma venda encontrada</div></td></tr>'
     return
