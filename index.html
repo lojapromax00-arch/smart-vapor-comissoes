@@ -430,13 +430,13 @@ input[type=checkbox] { width: auto; cursor: pointer; accent-color: var(--green);
             <input type="radio" name="excel-loja" id="excel-loja-vapor" value="VAPOR" checked style="display:none">
             <input type="radio" name="excel-loja" id="excel-loja-smart" value="SMART" style="display:none">
             <button type="button" id="btn-loja-vapor"
-              onclick="document.getElementById('excel-loja-vapor').checked=true;document.getElementById('btn-loja-vapor').classList.add('loja-ativa-v');document.getElementById('btn-loja-smart').classList.remove('loja-ativa-s')"
+              onclick="document.getElementById('excel-loja-vapor').checked=true;document.getElementById('btn-loja-vapor').classList.add('loja-ativa-v');document.getElementById('btn-loja-smart').classList.remove('loja-ativa-s');const _tb=document.getElementById('excel-tbody');if(_tb)_tb.innerHTML=renderExcelTabela(excelRows)"
               class="loja-ativa-v"
               style="padding:0.45rem 1.2rem;border-radius:8px;border:2px solid var(--green);background:transparent;color:var(--green);font-weight:800;font-size:0.95rem;cursor:pointer;transition:all .15s;letter-spacing:.5px;">
               🟢 VAPOR
             </button>
             <button type="button" id="btn-loja-smart"
-              onclick="document.getElementById('excel-loja-smart').checked=true;document.getElementById('btn-loja-smart').classList.add('loja-ativa-s');document.getElementById('btn-loja-vapor').classList.remove('loja-ativa-v')"
+              onclick="document.getElementById('excel-loja-smart').checked=true;document.getElementById('btn-loja-smart').classList.add('loja-ativa-s');document.getElementById('btn-loja-vapor').classList.remove('loja-ativa-v');const _tb=document.getElementById('excel-tbody');if(_tb)_tb.innerHTML=renderExcelTabela(excelRows)"
               style="padding:0.45rem 1.2rem;border-radius:8px;border:2px solid var(--cyan);background:transparent;color:var(--cyan);font-weight:800;font-size:0.95rem;cursor:pointer;transition:all .15s;letter-spacing:.5px;">
               🔵 SMART
             </button>
@@ -1129,6 +1129,7 @@ let excelRows = []
 
 function renderExcelTabela(rows) {
   const div100 = document.getElementById('excel-centavos')?.checked || false
+  const loja = document.querySelector('input[name="excel-loja"]:checked')?.value || 'VAPOR'
   return rows.map(r => {
     const v = div100 ? normalizeValor(r.valor) / 100 : normalizeValor(r.valor)
     return `<tr>
@@ -1136,7 +1137,7 @@ function renderExcelTabela(rows) {
       <td>${r.nome_cliente||'—'}</td>
       <td>${r.data_venda||'—'}</td>
       <td>${v ? brl(v) : '—'}</td>
-      <td><span class="loja-badge loja-${(r.loja||'').toUpperCase()}">${r.loja||'—'}</span></td>
+      <td><span class="loja-badge loja-${loja}">${loja}</span></td>
     </tr>`
   }).join('')
 }
@@ -1186,11 +1187,39 @@ function sbTimeout(promise, ms = 20000) {
   ])
 }
 
+async function _insertRows(rows, token) {
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), 20000)
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/vendas`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON,
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify(rows),
+      signal: ctrl.signal
+    })
+    clearTimeout(timer)
+    if (r.ok || r.status === 201) return { error: null }
+    const body = await r.json().catch(() => ({}))
+    return { error: { code: body.code, message: body.message || `HTTP ${r.status}` } }
+  } catch (e) {
+    clearTimeout(timer)
+    return { error: { message: e.name === 'AbortError' ? 'Timeout — conexão lenta' : e.message } }
+  }
+}
+
 async function importarExcel() {
   if (!excelRows.length) return
   const btn = document.getElementById('btn-importar-excel')
   if (btn) { btn.disabled = true; btn.textContent = 'Importando...' }
   try {
+    const token = currentSession?.access_token
+    if (!token) { toast('Sessão não disponível — recarregue a página', 'error'); return }
+
     const lojaForcada = document.querySelector('input[name="excel-loja"]:checked')?.value || 'VAPOR'
     const centavos = document.getElementById('excel-centavos')?.checked || false
 
@@ -1209,18 +1238,16 @@ async function importarExcel() {
 
     if (!toInsert.length) { toast('Nenhum pedido válido encontrado', 'info'); return }
 
-    // Inserir em lotes de 10 — pular duplicatas via constraint UNIQUE
     let inseridos = 0, duplicados = 0
     const BATCH = 10
     for (let i = 0; i < toInsert.length; i += BATCH) {
       const lote = toInsert.slice(i, i + BATCH)
       if (btn) btn.textContent = `Importando ${Math.min(i + BATCH, toInsert.length)}/${toInsert.length}...`
-      const { error } = await sbTimeout(sb.from('vendas').insert(lote), 15000)
+      const { error } = await _insertRows(lote, token)
       if (error) {
         if (error.code === '23505') {
-          // Lote tem duplicata — inserir um por um para pular só os duplicados
           for (const row of lote) {
-            const { error: e } = await sbTimeout(sb.from('vendas').insert(row), 10000)
+            const { error: e } = await _insertRows(row, token)
             if (!e) inseridos++
             else if (e.code === '23505') duplicados++
             else throw new Error(e.message)
