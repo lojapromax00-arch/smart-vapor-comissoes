@@ -1348,13 +1348,26 @@ async function loadHistorico() {
   const de = document.getElementById('hist-de').value
   const ate = document.getElementById('hist-ate').value
 
-  let q = sb.from('vendas').select('*').order('data_venda', { ascending: false })
-  if (loja) q = q.eq('loja', loja)
-  if (status) q = q.eq('status', status)
-  if (de) q = q.gte('data_venda', de)
-  if (ate) q = q.lte('data_venda', ate)
+  const token = currentSession?.access_token
+  if (!token) { toast('Sessão não disponível — recarregue a página', 'error'); return }
 
-  const { data } = await q
+  const tbody = document.getElementById('hist-tbody')
+  tbody.innerHTML = '<tr><td colspan="9" class="loading"><div class="spinner"></div></td></tr>'
+
+  let qs = 'select=*&order=data_venda.desc'
+  if (loja) qs += `&loja=eq.${encodeURIComponent(loja)}`
+  if (status) qs += `&status=eq.${encodeURIComponent(status)}`
+  if (de) qs += `&data_venda=gte.${de}`
+  if (ate) qs += `&data_venda=lte.${ate}`
+
+  let data
+  try {
+    data = await _sbGet(`vendas?${qs}`, token, 15000)
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#ef4444;padding:1rem;">❌ ${esc(e.message)} <button onclick="loadHistorico()" style="margin-left:.5rem;padding:.25rem .7rem;border-radius:6px;background:var(--primary);color:#fff;border:none;cursor:pointer;">🔄 Tentar novamente</button></td></tr>`
+    return
+  }
+
   histData = (data || []).filter(v => {
     if (!busca) return true
     return v.nome_cliente?.toLowerCase().includes(busca) ||
@@ -1477,9 +1490,22 @@ async function loadRelatorio() {
   const ate = document.getElementById('rel-ate').value
   if (!de || !ate) { toast('Selecione o período', 'error'); return }
 
-  let q = sb.from('vendas').select('*').gte('data_venda', de).lte('data_venda', ate).neq('status','cancelada').order('data_venda')
-  const { data } = await q
-  relData = data || []
+  const token = currentSession?.access_token
+  if (!token) { toast('Sessão não disponível — recarregue a página', 'error'); return }
+
+  const btn = document.querySelector('[onclick="loadRelatorio()"]')
+  if (btn) { btn.disabled = true; btn.textContent = 'Carregando...' }
+
+  let relRows
+  try {
+    relRows = await _sbGet(`vendas?select=*&data_venda=gte.${de}&data_venda=lte.${ate}&status=neq.cancelada&order=data_venda.asc`, token, 15000)
+  } catch (e) {
+    toast('Erro ao carregar relatório: ' + e.message, 'error')
+    if (btn) { btn.disabled = false; btn.textContent = '📊 Gerar relatório' }
+    return
+  }
+  if (btn) { btn.disabled = false; btn.textContent = '📊 Gerar relatório' }
+  relData = relRows || []
 
   const total = relData.reduce((s, v) => s + Number(v.valor), 0)
   const comissao = relData.reduce((s, v) => s + Number(v.valor_comissao), 0)
