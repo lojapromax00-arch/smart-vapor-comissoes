@@ -833,69 +833,97 @@ function getPeriodRange(period) {
 }
 
 // ── DASHBOARD ──
+let _dashLoading = false
 async function loadDashboard() {
-  const { from, to } = getPeriodRange(dashPeriod)
-  const vendedorId = document.getElementById('filter-vendedor')?.value || ''
+  if (_dashLoading) return
+  _dashLoading = true
+  const cards = document.getElementById('dash-cards')
+  if (cards) cards.style.opacity = '0.5'
+  try {
+    const { from, to } = getPeriodRange(dashPeriod)
+    const vendedorId = document.getElementById('filter-vendedor')?.value || ''
 
-  let q = sb.from('vendas').select('*').neq('status','cancelada')
-  if (from) q = q.gte('data_venda', from).lte('data_venda', to)
-  if (vendedorId) q = q.eq('user_id', vendedorId)
-  const { data: vendas, error: errDash } = await sbTimeout(q, 15000).catch(() => ({ data: null, error: { message: 'timeout' } }))
+    let q = sb.from('vendas').select('*').neq('status','cancelada')
+    if (from) q = q.gte('data_venda', from).lte('data_venda', to)
+    if (vendedorId) q = q.eq('user_id', vendedorId)
+    const result = await sbTimeout(q, 15000).catch(err => ({ data: null, error: { message: err?.message || 'timeout' } }))
+    const vendas = result?.data
+    const errDash = result?.error
 
-  if (!vendas) {
-    if (errDash) toast('Erro ao carregar dashboard: ' + errDash.message, 'error')
-    return
+    if (!vendas) {
+      const msg = errDash?.message || 'Falha desconhecida'
+      console.error('[Dashboard] query falhou:', msg, errDash)
+      _showDashError(msg)
+      return
+    }
+
+    document.getElementById('dash-error-row')?.remove()
+
+    const total = vendas.reduce((s, v) => s + Number(v.valor), 0)
+    const comissao = vendas.reduce((s, v) => s + Number(v.valor_comissao), 0)
+    const vapor = vendas.filter(v => v.loja === 'VAPOR').reduce((s, v) => s + Number(v.valor), 0)
+    const smart = vendas.filter(v => v.loja === 'SMART').reduce((s, v) => s + Number(v.valor), 0)
+
+    document.getElementById('c-total').textContent = brl(total)
+    document.getElementById('c-comissao').textContent = brl(comissao)
+    document.getElementById('c-pedidos').textContent = vendas.length
+    document.getElementById('c-ticket').textContent = vendas.length ? brl(total / vendas.length) : '—'
+    document.getElementById('c-vapor').textContent = brl(vapor)
+    document.getElementById('c-smart').textContent = brl(smart)
+
+    try { renderChartDia(vendas) } catch(e) { console.error('renderChartDia:', e) }
+    try { renderChartLoja(vapor, smart) } catch(e) { console.error('renderChartLoja:', e) }
+    try { renderRanking(vendas) } catch(e) { console.error('renderRanking:', e) }
+
+    // Meta e comparativo em paralelo, sem bloquear o restante
+    const now = new Date()
+    const mesFrom = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`
+    const mesAntFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0]
+    const mesAntTo = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0]
+
+    const comissaoMesPromise = dashPeriod === 'mes'
+      ? Promise.resolve(comissao)
+      : sbTimeout(
+          sb.from('vendas').select('valor_comissao').neq('status','cancelada').gte('data_venda', mesFrom).eq('user_id', currentUser.id),
+          10000
+        ).then(r => (r.data || []).reduce((s, v) => s + Number(v.valor_comissao), 0)).catch(() => comissao)
+
+    const comissaoAntPromise = sbTimeout(
+      sb.from('vendas').select('valor_comissao').neq('status','cancelada').gte('data_venda', mesAntFrom).lte('data_venda', mesAntTo).eq('user_id', currentUser.id),
+      10000
+    ).then(r => (r.data || []).reduce((s, v) => s + Number(v.valor_comissao), 0)).catch(() => 0)
+
+    Promise.all([comissaoMesPromise, comissaoAntPromise]).then(([comissaoMes, comissaoAnt]) => {
+      const pct = Math.min(100, (comissaoMes / META_MENSAL) * 100)
+      document.getElementById('meta-pct').textContent = pct.toFixed(1) + '%'
+      document.getElementById('meta-fill').style.width = pct + '%'
+      document.getElementById('meta-atual').textContent = brl(comissaoMes)
+      const delta = comissaoAnt > 0 ? ((comissaoMes - comissaoAnt) / comissaoAnt) * 100 : 0
+      document.getElementById('comp-texto').textContent = `Este mês: ${brl(comissaoMes)} | Mês anterior: ${brl(comissaoAnt)}`
+      const deltaEl = document.getElementById('comp-delta')
+      deltaEl.textContent = delta >= 0 ? `+${delta.toFixed(1)}%` : `${delta.toFixed(1)}%`
+      deltaEl.className = delta >= 0 ? 'comp-delta up' : 'comp-delta down'
+    })
+  } catch (err) {
+    console.error('[Dashboard] erro inesperado:', err)
+    _showDashError('Erro inesperado: ' + (err?.message || String(err)))
+  } finally {
+    _dashLoading = false
+    if (cards) cards.style.opacity = '1'
   }
-
-  const total = vendas.reduce((s, v) => s + Number(v.valor), 0)
-  const comissao = vendas.reduce((s, v) => s + Number(v.valor_comissao), 0)
-  const vapor = vendas.filter(v => v.loja === 'VAPOR').reduce((s, v) => s + Number(v.valor), 0)
-  const smart = vendas.filter(v => v.loja === 'SMART').reduce((s, v) => s + Number(v.valor), 0)
-
-  document.getElementById('c-total').textContent = brl(total)
-  document.getElementById('c-comissao').textContent = brl(comissao)
-  document.getElementById('c-pedidos').textContent = vendas.length
-  document.getElementById('c-ticket').textContent = vendas.length ? brl(total / vendas.length) : '—'
-  document.getElementById('c-vapor').textContent = brl(vapor)
-  document.getElementById('c-smart').textContent = brl(smart)
-
-  // Renderiza gráficos e ranking imediatamente — não depende de queries secundárias
-  renderChartDia(vendas)
-  renderChartLoja(vapor, smart)
-  renderRanking(vendas)
-
-  // Meta e comparativo em paralelo, sem bloquear o restante
-  const now = new Date()
-  const mesFrom = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`
-  const mesAntFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0]
-  const mesAntTo = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0]
-
-  // Comissão do mês: reusa dados já carregados se período é "mes"
-  const comissaoMesPromise = dashPeriod === 'mes'
-    ? Promise.resolve(comissao)
-    : sbTimeout(
-        sb.from('vendas').select('valor_comissao').neq('status','cancelada').gte('data_venda', mesFrom).eq('user_id', currentUser.id),
-        10000
-      ).then(r => (r.data || []).reduce((s, v) => s + Number(v.valor_comissao), 0)).catch(() => comissao)
-
-  // Comissão do mês anterior
-  const comissaoAntPromise = sbTimeout(
-    sb.from('vendas').select('valor_comissao').neq('status','cancelada').gte('data_venda', mesAntFrom).lte('data_venda', mesAntTo).eq('user_id', currentUser.id),
-    10000
-  ).then(r => (r.data || []).reduce((s, v) => s + Number(v.valor_comissao), 0)).catch(() => 0)
-
-  Promise.all([comissaoMesPromise, comissaoAntPromise]).then(([comissaoMes, comissaoAnt]) => {
-    const pct = Math.min(100, (comissaoMes / META_MENSAL) * 100)
-    document.getElementById('meta-pct').textContent = pct.toFixed(1) + '%'
-    document.getElementById('meta-fill').style.width = pct + '%'
-    document.getElementById('meta-atual').textContent = brl(comissaoMes)
-
-    const delta = comissaoAnt > 0 ? ((comissaoMes - comissaoAnt) / comissaoAnt) * 100 : 0
-    document.getElementById('comp-texto').textContent = `Este mês: ${brl(comissaoMes)} | Mês anterior: ${brl(comissaoAnt)}`
-    const deltaEl = document.getElementById('comp-delta')
-    deltaEl.textContent = delta >= 0 ? `+${delta.toFixed(1)}%` : `${delta.toFixed(1)}%`
-    deltaEl.className = delta >= 0 ? 'comp-delta up' : 'comp-delta down'
-  })
+}
+function _showDashError(msg) {
+  const cards = document.getElementById('dash-cards')
+  if (!cards) return
+  let row = document.getElementById('dash-error-row')
+  if (!row) {
+    row = document.createElement('div')
+    row.id = 'dash-error-row'
+    row.style.cssText = 'grid-column:1/-1;text-align:center;padding:0.75rem;display:flex;align-items:center;justify-content:center;gap:0.75rem;flex-wrap:wrap;'
+    cards.appendChild(row)
+  }
+  row.innerHTML = `<span style="color:#ef4444;font-size:0.85rem;">❌ ${escHtml(msg)}</span><button onclick="_dashLoading=false;loadDashboard()" style="padding:0.35rem 0.9rem;border-radius:6px;background:var(--primary,#00a846);color:#fff;border:none;cursor:pointer;font-size:0.82rem;">🔄 Tentar novamente</button>`
+  toast('Dashboard: ' + msg, 'error')
 }
 
 function renderChartDia(vendas) {
