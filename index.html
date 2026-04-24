@@ -649,6 +649,7 @@ const META_MENSAL = 3000
 
 // ── STATE ──
 let currentUser = null
+let currentSession = null
 let currentPerfil = null
 let dashPeriod = 'mes'
 let chartDia = null
@@ -662,14 +663,14 @@ let relData = []
 sb.auth.onAuthStateChange(async (event, session) => {
   if (session) {
     currentUser = session.user
-    // Mostra o app imediatamente, sem esperar o perfil carregar
+    currentSession = session
     document.getElementById('page-login').style.display = 'none'
     document.getElementById('app').style.display = 'block'
     showPage('dashboard')
-    // Carrega perfil em background
     try { await loadPerfil() } catch (err) { console.error('loadPerfil:', err) }
   } else {
     currentUser = null
+    currentSession = null
     currentPerfil = null
     document.getElementById('page-login').style.display = 'flex'
     document.getElementById('app').style.display = 'none'
@@ -833,8 +834,6 @@ function getPeriodRange(period) {
 }
 
 // ── DASHBOARD ──
-let _dashLoading = false
-
 // Fetch direto na REST API do Supabase com AbortController real
 async function _sbGet(path, token, timeoutMs) {
   const ctrl = new AbortController()
@@ -845,7 +844,10 @@ async function _sbGet(path, token, timeoutMs) {
       signal: ctrl.signal
     })
     clearTimeout(timer)
-    if (!r.ok) throw new Error(`Supabase ${r.status}`)
+    if (!r.ok) {
+      const body = await r.text().catch(() => '')
+      throw new Error(`HTTP ${r.status}: ${body}`)
+    }
     return await r.json()
   } catch (e) {
     clearTimeout(timer)
@@ -853,20 +855,18 @@ async function _sbGet(path, token, timeoutMs) {
   }
 }
 
-async function loadDashboard() {
-  if (_dashLoading) return
-  _dashLoading = true
+let _dashDebounce = null
+function loadDashboard() {
+  clearTimeout(_dashDebounce)
+  _dashDebounce = setTimeout(_execLoadDashboard, 80)
+}
+async function _execLoadDashboard() {
   const cards = document.getElementById('dash-cards')
   if (cards) cards.style.opacity = '0.5'
   try {
-    // Garante que o token está atualizado antes de qualquer query
-    const authResult = await Promise.race([
-      sb.auth.getSession(),
-      new Promise((_, rej) => setTimeout(() => rej(new Error('auth timeout')), 6000))
-    ]).catch(() => ({ data: { session: null } }))
-    const session = authResult?.data?.session
-    if (!session) { _showDashError('Sessão expirada — faça login novamente'); return }
-    const token = session.access_token
+    // Usa sessão já armazenada pelo onAuthStateChange — sem chamada de rede
+    const token = currentSession?.access_token
+    if (!token) { _showDashError('Sessão não disponível — recarregue a página'); return }
 
     const { from, to } = getPeriodRange(dashPeriod)
     const vendedorId = document.getElementById('filter-vendedor')?.value || ''
@@ -879,7 +879,7 @@ async function loadDashboard() {
     try {
       vendas = await _sbGet(`vendas?${qs}`, token, 12000)
     } catch (e) {
-      console.error('[Dashboard] query:', e.message)
+      console.error('[Dashboard] query falhou:', e.message)
       _showDashError(e.message)
       return
     }
@@ -902,7 +902,7 @@ async function loadDashboard() {
     try { renderChartLoja(vapor, smart) } catch(e) { console.error('renderChartLoja:', e) }
     try { renderRanking(vendas) } catch(e) { console.error('renderRanking:', e) }
 
-    // Meta e comparativo em paralelo — não bloqueia os cards/gráficos acima
+    // Meta e comparativo em paralelo — não bloqueia cards/gráficos acima
     const now = new Date()
     const mesFrom = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`
     const mesAntFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0]
@@ -933,21 +933,23 @@ async function loadDashboard() {
     console.error('[Dashboard] erro inesperado:', err)
     _showDashError('Erro: ' + (err?.message || String(err)))
   } finally {
-    _dashLoading = false
     if (cards) cards.style.opacity = '1'
   }
 }
 function _showDashError(msg) {
+  console.error('[Dashboard] mostrar erro:', msg)
   const cards = document.getElementById('dash-cards')
   if (!cards) return
-  let row = document.getElementById('dash-error-row')
-  if (!row) {
-    row = document.createElement('div')
-    row.id = 'dash-error-row'
-    row.style.cssText = 'grid-column:1/-1;text-align:center;padding:0.75rem;display:flex;align-items:center;justify-content:center;gap:0.75rem;flex-wrap:wrap;'
-    cards.appendChild(row)
-  }
-  row.innerHTML = `<span style="color:#ef4444;font-size:0.85rem;">❌ ${escHtml(msg)}</span><button onclick="_dashLoading=false;loadDashboard()" style="padding:0.35rem 0.9rem;border-radius:6px;background:var(--primary,#00a846);color:#fff;border:none;cursor:pointer;font-size:0.82rem;">🔄 Tentar novamente</button>`
+  try {
+    let row = document.getElementById('dash-error-row')
+    if (!row) {
+      row = document.createElement('div')
+      row.id = 'dash-error-row'
+      row.style.cssText = 'grid-column:1/-1;text-align:center;padding:0.75rem;display:flex;align-items:center;justify-content:center;gap:0.75rem;flex-wrap:wrap;'
+      cards.appendChild(row)
+    }
+    row.innerHTML = `<span style="color:#ef4444;font-size:0.85rem;">❌ ${esc(msg)}</span><button onclick="loadDashboard()" style="padding:0.35rem 0.9rem;border-radius:6px;background:var(--primary,#00a846);color:#fff;border:none;cursor:pointer;font-size:0.82rem;">🔄 Tentar novamente</button>`
+  } catch(e) { console.error('_showDashError falhou:', e) }
 }
 
 function renderChartDia(vendas) {
