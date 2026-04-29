@@ -312,12 +312,12 @@ input[type=checkbox] { width: auto; cursor: pointer; accent-color: var(--green);
       </button>
       <div class="user-info" id="user-info" onclick="showPage('perfil')">
         <div class="avatar" id="sidebar-avatar">?</div>
-        <div>
+        <div style="flex:1;min-width:0;">
           <div class="user-name" id="sidebar-nome">...</div>
           <div id="badge-admin" style="display:none;" class="badge-admin">ADMIN</div>
         </div>
-        <button onclick="logout(event)" title="Sair" style="background:none;border:none;color:var(--text2);cursor:pointer;padding:0.25rem;font-size:0.9rem;">⏻</button>
       </div>
+      <button onclick="logout(event)" style="width:100%;display:flex;align-items:center;justify-content:center;gap:0.4rem;background:rgba(224,49,49,0.08);border:1px solid rgba(224,49,49,0.25);color:var(--red);cursor:pointer;padding:0.4rem 0.75rem;border-radius:8px;font-size:0.8rem;margin-top:0.4rem;transition:background 0.2s;" onmouseover="this.style.background='rgba(224,49,49,0.2)'" onmouseout="this.style.background='rgba(224,49,49,0.08)'">⏻ Sair</button>
     </div>
   </div>
 
@@ -1105,6 +1105,15 @@ async function handleExcel(e) {
   const rows = XLSX.utils.sheet_to_json(ws, { defval: '' })
 
   if (!rows.length) { preview.innerHTML = '<p style="color:var(--red)">Planilha vazia ou sem dados.</p>'; return }
+
+  // Detectar centavos nos dados BRUTOS do Excel (antes da IA)
+  const rawNums = rows.flatMap(r => Object.values(r))
+    .filter(v => typeof v === 'number' && v > 0 && Number.isInteger(v))
+  if (rawNums.length >= 3) {
+    const rawMedia = rawNums.reduce((a, b) => a + b, 0) / rawNums.length
+    const cb = document.getElementById('excel-centavos')
+    if (cb) cb.checked = rawMedia > 2000
+  }
 
   preview.innerHTML = `<p style="font-size:0.8rem;color:var(--text2);margin-bottom:0.75rem;">${rows.length} linhas encontradas. Mapeando com IA...</p>`
 
