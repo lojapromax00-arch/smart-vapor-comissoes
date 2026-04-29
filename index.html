@@ -750,16 +750,30 @@ function toggleTheme() {
 
 // ── PERFIL ──
 async function loadPerfil() {
-  const { data } = await sb.from('perfis').select('*').eq('id', currentUser.id).single()
-  if (data) {
-    currentPerfil = data
+  const token = currentSession?.access_token
+  if (!token) return
+  let perfil = null
+  try {
+    const rows = await _sbGet(`perfis?id=eq.${encodeURIComponent(currentUser.id)}&select=*&limit=1`, token, 8000)
+    perfil = rows?.[0] || null
+  } catch (e) { console.error('loadPerfil:', e) }
+
+  if (perfil) {
+    currentPerfil = perfil
   } else {
     // Cria perfil se não existe
-    await sb.from('perfis').insert({ id: currentUser.id, email: currentUser.email })
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/perfis`, {
+        method: 'POST',
+        headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+        body: JSON.stringify({ id: currentUser.id, email: currentUser.email })
+      })
+    } catch {}
     currentPerfil = { id: currentUser.id, email: currentUser.email, role: 'vendedor' }
   }
+
   updateSidebarUser()
-  if (currentPerfil.role === 'admin') {
+  if (currentPerfil?.role === 'admin') {
     document.getElementById('badge-admin').style.display = 'inline-block'
     document.getElementById('admin-filter-wrap').style.display = 'block'
     loadVendedores()
@@ -778,12 +792,17 @@ function updateSidebarUser() {
 }
 
 async function loadVendedores() {
-  const { data } = await sb.from('perfis').select('id, email, nome')
+  const token = currentSession?.access_token
+  if (!token) return
   const sel = document.getElementById('filter-vendedor')
-  sel.innerHTML = '<option value="">Todos os vendedores</option>'
-  if (data) data.forEach(v => {
-    sel.innerHTML += `<option value="${v.id}">${v.nome || v.email}</option>`
-  })
+  if (!sel) return
+  try {
+    const data = await _sbGet('perfis?select=id,email,nome&role=eq.vendedor', token, 8000)
+    sel.innerHTML = '<option value="">Todos os vendedores</option>'
+    if (data) data.forEach(v => {
+      sel.innerHTML += `<option value="${v.id}">${v.nome || v.email}</option>`
+    })
+  } catch (e) { console.error('loadVendedores:', e) }
 }
 
 // ── ROUTER ──
