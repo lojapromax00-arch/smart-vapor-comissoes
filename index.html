@@ -1125,15 +1125,6 @@ async function handleExcel(e) {
 
   if (!rows.length) { preview.innerHTML = '<p style="color:var(--red)">Planilha vazia ou sem dados.</p>'; return }
 
-  // Detectar centavos nos dados BRUTOS do Excel (antes da IA)
-  const rawNums = rows.flatMap(r => Object.values(r))
-    .filter(v => typeof v === 'number' && v > 0 && Number.isInteger(v))
-  if (rawNums.length >= 3) {
-    const rawMedia = rawNums.reduce((a, b) => a + b, 0) / rawNums.length
-    const cb = document.getElementById('excel-centavos')
-    if (cb) cb.checked = rawMedia > 2000
-  }
-
   preview.innerHTML = `<p style="font-size:0.8rem;color:var(--text2);margin-bottom:0.75rem;">${rows.length} linhas encontradas. Mapeando com IA...</p>`
 
   try {
@@ -1173,11 +1164,10 @@ function renderExcelTabela(rows) {
 function renderExcelPreview(rows) {
   excelRows = rows
 
-  // Auto-detectar centavos: todos inteiros e média > 5000
+  // Auto-detectar centavos: média dos valores mapeados > 1000 indica centavos
   const vals = rows.map(r => normalizeValor(r.valor)).filter(v => v > 0)
-  const todosInteiros = vals.length > 0 && vals.every(v => v === Math.round(v))
   const media = vals.reduce((a, b) => a + b, 0) / (vals.length || 1)
-  const autoCentavos = todosInteiros && media > 5000
+  const autoCentavos = media > 1000
   const cb = document.getElementById('excel-centavos')
   if (cb) cb.checked = autoCentavos
 
