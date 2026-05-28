@@ -350,7 +350,7 @@ input[type=checkbox] { width: auto; cursor: pointer; accent-color: var(--green);
       </div>
       <div class="meta-card">
         <div class="meta-header">
-          <h3>Meta Mensal — R$ 3.000</h3>
+          <h3 id="meta-titulo">Meta Mensal — R$ 3.000</h3>
           <span class="meta-pct" id="meta-pct">0%</span>
         </div>
         <div class="progress-bar"><div class="progress-fill" id="meta-fill" style="width:0%"></div></div>
@@ -652,7 +652,7 @@ input[type=checkbox] { width: auto; cursor: pointer; accent-color: var(--green);
 const SUPABASE_URL = 'https://iellghdnlofcqqaschzd.supabase.co'
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImllbGxnaGRubG9mY3FxYXNjaHpkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0Mzg5MTYsImV4cCI6MjA5MjAxNDkxNn0.cijD4jfQshhryXxoQPJjblk-D4YzIyAsTzEhGJf6Mxo'
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON)
-const META_MENSAL = 3000
+// Meta definida dinamicamente com base no mês anterior de cada vendedor
 
 // ── STATE ──
 let currentUser = null
@@ -945,7 +945,10 @@ async function _execLoadDashboard() {
       : _fetchComissao(`data_venda=gte.${mesFrom}`)
 
     Promise.all([comissaoMesPromise, _fetchComissao(`data_venda=gte.${mesAntFrom}&data_venda=lte.${mesAntTo}`)]).then(([comissaoMes, comissaoAnt]) => {
-      const pct = Math.min(100, (comissaoMes / META_MENSAL) * 100)
+      // Meta dinâmica: usa comissão do mês anterior; fallback R$3.000 para novos vendedores
+      const metaDinamica = comissaoAnt > 0 ? comissaoAnt : 3000
+      const pct = Math.min(100, (comissaoMes / metaDinamica) * 100)
+      document.getElementById('meta-titulo').textContent = `Meta Mensal — ${brl(metaDinamica)}`
       document.getElementById('meta-pct').textContent = pct.toFixed(1) + '%'
       document.getElementById('meta-fill').style.width = pct + '%'
       document.getElementById('meta-atual').textContent = brl(comissaoMes)
