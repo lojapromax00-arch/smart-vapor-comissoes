@@ -135,6 +135,7 @@ select.filter-btn { appearance: none; padding-right: 1.5rem; background-image: u
 .comp-delta.down { color: var(--red); }
 .loja-ativa-v { background: var(--cyan) !important; color: #fff !important; box-shadow: 0 0 10px rgba(0,198,220,.4); }
 .loja-ativa-s { background: var(--green) !important; color: #fff !important; box-shadow: 0 0 10px rgba(0,168,70,.4); }
+.loja-ativa-p { background: var(--yellow) !important; color: #fff !important; box-shadow: 0 0 10px rgba(230,119,0,.4); }
 
 /* ── FORMS ── */
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
@@ -195,6 +196,7 @@ tbody td { padding: 0.65rem 0.75rem; vertical-align: middle; }
 .loja-badge { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; }
 .loja-VAPOR { background: rgba(0,119,182,0.2); color: var(--cyan); }
 .loja-SMART { background: rgba(0,230,118,0.2); color: var(--green); }
+.loja-EL_PATRON { background: rgba(230,119,0,0.2); color: var(--yellow); }
 
 /* ── MODAL ── */
 .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; padding: 1rem; }
@@ -347,6 +349,7 @@ input[type=checkbox] { width: auto; cursor: pointer; accent-color: var(--green);
         <div class="card"><div class="card-label">Ticket Médio</div><div class="card-value yellow" id="c-ticket">—</div></div>
         <div class="card"><div class="card-label">VAPOR</div><div class="card-value green" id="c-vapor">—</div></div>
         <div class="card"><div class="card-label">SMART</div><div class="card-value cyan" id="c-smart">—</div></div>
+        <div class="card"><div class="card-label">EL PATRON</div><div class="card-value yellow" id="c-patron">—</div></div>
       </div>
       <div class="meta-card">
         <div class="meta-header">
@@ -372,7 +375,7 @@ input[type=checkbox] { width: auto; cursor: pointer; accent-color: var(--green);
           <div class="chart-wrap"><canvas id="chart-dia"></canvas></div>
         </div>
         <div class="chart-card">
-          <h3>VAPOR vs SMART</h3>
+          <h3>Vendas por Loja</h3>
           <div class="chart-wrap"><canvas id="chart-loja"></canvas></div>
         </div>
       </div>
@@ -384,6 +387,10 @@ input[type=checkbox] { width: auto; cursor: pointer; accent-color: var(--green);
         <div class="rank-card" id="rank-smart">
           <h3>🟢 Top SMART</h3>
           <div id="rank-smart-list"><div class="loading"><div class="spinner"></div></div></div>
+        </div>
+        <div class="rank-card" id="rank-patron">
+          <h3>🟡 Top EL PATRON</h3>
+          <div id="rank-patron-list"><div class="loading"><div class="spinner"></div></div></div>
         </div>
       </div>
     </div>
@@ -429,16 +436,22 @@ input[type=checkbox] { width: auto; cursor: pointer; accent-color: var(--green);
             <span style="font-weight:600;color:var(--text2);font-size:0.85rem;margin-right:0.25rem;">Loja:</span>
             <input type="radio" name="excel-loja" id="excel-loja-vapor" value="VAPOR" checked style="display:none">
             <input type="radio" name="excel-loja" id="excel-loja-smart" value="SMART" style="display:none">
+            <input type="radio" name="excel-loja" id="excel-loja-patron" value="EL PATRON" style="display:none">
             <button type="button" id="btn-loja-vapor"
-              onclick="document.getElementById('excel-loja-vapor').checked=true;document.getElementById('btn-loja-vapor').classList.add('loja-ativa-v');document.getElementById('btn-loja-smart').classList.remove('loja-ativa-s');const _tb=document.getElementById('excel-tbody');if(_tb)_tb.innerHTML=renderExcelTabela(excelRows)"
+              onclick="document.getElementById('excel-loja-vapor').checked=true;document.getElementById('btn-loja-vapor').classList.add('loja-ativa-v');document.getElementById('btn-loja-smart').classList.remove('loja-ativa-s');document.getElementById('btn-loja-patron').classList.remove('loja-ativa-p');const _tb=document.getElementById('excel-tbody');if(_tb)_tb.innerHTML=renderExcelTabela(excelRows)"
               class="loja-ativa-v"
               style="padding:0.45rem 1.2rem;border-radius:8px;border:2px solid var(--cyan);background:transparent;color:var(--cyan);font-weight:800;font-size:0.95rem;cursor:pointer;transition:all .15s;letter-spacing:.5px;">
               🔵 VAPOR
             </button>
             <button type="button" id="btn-loja-smart"
-              onclick="document.getElementById('excel-loja-smart').checked=true;document.getElementById('btn-loja-smart').classList.add('loja-ativa-s');document.getElementById('btn-loja-vapor').classList.remove('loja-ativa-v');const _tb=document.getElementById('excel-tbody');if(_tb)_tb.innerHTML=renderExcelTabela(excelRows)"
+              onclick="document.getElementById('excel-loja-smart').checked=true;document.getElementById('btn-loja-smart').classList.add('loja-ativa-s');document.getElementById('btn-loja-vapor').classList.remove('loja-ativa-v');document.getElementById('btn-loja-patron').classList.remove('loja-ativa-p');const _tb=document.getElementById('excel-tbody');if(_tb)_tb.innerHTML=renderExcelTabela(excelRows)"
               style="padding:0.45rem 1.2rem;border-radius:8px;border:2px solid var(--green);background:transparent;color:var(--green);font-weight:800;font-size:0.95rem;cursor:pointer;transition:all .15s;letter-spacing:.5px;">
               🟢 SMART
+            </button>
+            <button type="button" id="btn-loja-patron"
+              onclick="document.getElementById('excel-loja-patron').checked=true;document.getElementById('btn-loja-patron').classList.add('loja-ativa-p');document.getElementById('btn-loja-vapor').classList.remove('loja-ativa-v');document.getElementById('btn-loja-smart').classList.remove('loja-ativa-s');const _tb=document.getElementById('excel-tbody');if(_tb)_tb.innerHTML=renderExcelTabela(excelRows)"
+              style="padding:0.45rem 1.2rem;border-radius:8px;border:2px solid var(--yellow);background:transparent;color:var(--yellow);font-weight:800;font-size:0.95rem;cursor:pointer;transition:all .15s;letter-spacing:.5px;">
+              🟡 EL PATRON
             </button>
           </div>
           <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.85rem;color:var(--text2);border-left:1px solid var(--border);padding-left:1rem;">
@@ -468,6 +481,7 @@ input[type=checkbox] { width: auto; cursor: pointer; accent-color: var(--green);
               <select name="loja" required>
                 <option value="VAPOR">VAPOR</option>
                 <option value="SMART">SMART</option>
+                <option value="EL PATRON">EL PATRON</option>
               </select>
             </div>
             <div class="form-group full"><label>Observações</label><textarea name="observacoes"></textarea></div>
@@ -486,6 +500,7 @@ input[type=checkbox] { width: auto; cursor: pointer; accent-color: var(--green);
           <option value="">Todas as lojas</option>
           <option value="VAPOR">VAPOR</option>
           <option value="SMART">SMART</option>
+          <option value="EL PATRON">EL PATRON</option>
         </select>
         <select class="filter-btn" id="hist-status" onchange="loadHistorico()">
           <option value="">Todos os status</option>
@@ -628,6 +643,7 @@ input[type=checkbox] { width: auto; cursor: pointer; accent-color: var(--green);
           <select id="edit-loja" required>
             <option value="VAPOR">VAPOR</option>
             <option value="SMART">SMART</option>
+            <option value="EL PATRON">EL PATRON</option>
           </select>
         </div>
         <div class="form-group"><label>Status</label>
@@ -916,6 +932,7 @@ async function _execLoadDashboard() {
     const comissao = vendas.reduce((s, v) => s + Number(v.valor_comissao), 0)
     const vapor = vendas.filter(v => v.loja === 'VAPOR').reduce((s, v) => s + Number(v.valor), 0)
     const smart = vendas.filter(v => v.loja === 'SMART').reduce((s, v) => s + Number(v.valor), 0)
+    const patron = vendas.filter(v => v.loja === 'EL PATRON').reduce((s, v) => s + Number(v.valor), 0)
 
     document.getElementById('c-total').textContent = brl(total)
     document.getElementById('c-comissao').textContent = brl(comissao)
@@ -923,9 +940,10 @@ async function _execLoadDashboard() {
     document.getElementById('c-ticket').textContent = vendas.length ? brl(total / vendas.length) : '—'
     document.getElementById('c-vapor').textContent = brl(vapor)
     document.getElementById('c-smart').textContent = brl(smart)
+    document.getElementById('c-patron').textContent = brl(patron)
 
     try { renderChartDia(vendas) } catch(e) { console.error('renderChartDia:', e) }
-    try { renderChartLoja(vapor, smart) } catch(e) { console.error('renderChartLoja:', e) }
+    try { renderChartLoja(vapor, smart, patron) } catch(e) { console.error('renderChartLoja:', e) }
     try { renderRanking(vendas) } catch(e) { console.error('renderRanking:', e) }
 
     // Meta e comparativo em paralelo — não bloqueia cards/gráficos acima
@@ -999,13 +1017,13 @@ function renderChartDia(vendas) {
   })
 }
 
-function renderChartLoja(vapor, smart) {
+function renderChartLoja(vapor, smart, patron) {
   if (chartLoja) chartLoja.destroy()
   chartLoja = new Chart(document.getElementById('chart-loja'), {
     type: 'doughnut',
     data: {
-      labels: ['VAPOR', 'SMART'],
-      datasets: [{ data: [vapor, smart], backgroundColor: ['rgba(0,119,182,0.8)', 'rgba(0,168,70,0.8)'], borderColor: ['#0077b6', '#00a846'], borderWidth: 2 }]
+      labels: ['VAPOR', 'SMART', 'EL PATRON'],
+      datasets: [{ data: [vapor, smart, patron], backgroundColor: ['rgba(0,119,182,0.8)', 'rgba(0,168,70,0.8)', 'rgba(230,119,0,0.8)'], borderColor: ['#0077b6', '#00a846', '#e67700'], borderWidth: 2 }]
     },
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#94a3b8', boxWidth: 12 } } } }
   })
@@ -1014,6 +1032,7 @@ function renderChartLoja(vapor, smart) {
 function renderRanking(vendas) {
   const vaporVendas = vendas.filter(v => v.loja === 'VAPOR')
   const smartVendas = vendas.filter(v => v.loja === 'SMART')
+  const patronVendas = vendas.filter(v => v.loja === 'EL PATRON')
   const aggPedidos = (arr) => {
     const map = {}
     arr.forEach(v => { map[v.numero_pedido] = (map[v.numero_pedido] || 0) + Number(v.valor) })
@@ -1021,6 +1040,7 @@ function renderRanking(vendas) {
   }
   const topV = aggPedidos(vaporVendas)
   const topS = aggPedidos(smartVendas)
+  const topP = aggPedidos(patronVendas)
   const renderList = (arr, elId) => {
     const el = document.getElementById(elId)
     if (!arr.length) { el.innerHTML = '<div style="color:var(--text2);font-size:0.8rem;text-align:center;padding:1rem;">Sem dados</div>'; return }
@@ -1034,6 +1054,7 @@ function renderRanking(vendas) {
   }
   renderList(topV, 'rank-vapor-list')
   renderList(topS, 'rank-smart-list')
+  renderList(topP, 'rank-patron-list')
 }
 
 // ── NOVA VENDA — TABS ──
@@ -1159,7 +1180,7 @@ function renderExcelTabela(rows) {
       <td>${r.nome_cliente||'—'}</td>
       <td>${r.data_venda||'—'}</td>
       <td>${v ? brl(v) : '—'}</td>
-      <td><span class="loja-badge loja-${loja}">${loja}</span></td>
+      <td><span class="loja-badge loja-${loja.replace(/\s/g,'_')}">${loja}</span></td>
     </tr>`
   }).join('')
 }
@@ -1306,6 +1327,7 @@ function buildVendaForm(data, id) {
         <select id="${id}-loja">
           <option value="VAPOR" ${data.loja==='VAPOR'?'selected':''}>VAPOR</option>
           <option value="SMART" ${data.loja==='SMART'?'selected':''}>SMART</option>
+          <option value="EL PATRON" ${data.loja==='EL PATRON'?'selected':''}>EL PATRON</option>
         </select>
       </div>
       <div class="form-group full"><label>Observações</label><textarea id="${id}-obs">${esc(data.observacoes||'')}</textarea></div>
@@ -1409,7 +1431,7 @@ async function loadHistorico() {
       <td>${formatDate(v.data_venda)}</td>
       <td>${brl(v.valor)}</td>
       <td style="color:var(--green)">${brl(v.valor_comissao)}</td>
-      <td><span class="loja-badge loja-${v.loja}">${v.loja}</span></td>
+      <td><span class="loja-badge loja-${v.loja.replace(/\s/g,'_')}">${v.loja}</span></td>
       <td><span class="status-badge status-${v.status}">${v.status}</span></td>
       <td>
         <button class="btn btn-secondary btn-sm" onclick="abrirEditar('${v.id}')">✏️</button>
@@ -1536,13 +1558,14 @@ async function loadRelatorio() {
 
   const vapor = relData.filter(v => v.loja === 'VAPOR').reduce((s, v) => s + Number(v.valor), 0)
   const smart = relData.filter(v => v.loja === 'SMART').reduce((s, v) => s + Number(v.valor), 0)
+  const patron = relData.filter(v => v.loja === 'EL PATRON').reduce((s, v) => s + Number(v.valor), 0)
 
   if (relChartLoja) relChartLoja.destroy()
   relChartLoja = new Chart(document.getElementById('rel-chart-loja'), {
     type: 'doughnut',
     data: {
-      labels: ['VAPOR', 'SMART'],
-      datasets: [{ data: [vapor, smart], backgroundColor: ['rgba(0,119,182,0.8)', 'rgba(0,168,70,0.8)'], borderColor: ['#0077b6', '#00a846'], borderWidth: 2 }]
+      labels: ['VAPOR', 'SMART', 'EL PATRON'],
+      datasets: [{ data: [vapor, smart, patron], backgroundColor: ['rgba(0,119,182,0.8)', 'rgba(0,168,70,0.8)', 'rgba(230,119,0,0.8)'], borderColor: ['#0077b6', '#00a846', '#e67700'], borderWidth: 2 }]
     },
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#94a3b8' } } } }
   })
@@ -1567,7 +1590,7 @@ async function loadRelatorio() {
       <td>${formatDate(v.data_venda)}</td>
       <td>${brl(v.valor)}</td>
       <td style="color:var(--green)">${brl(v.valor_comissao)}</td>
-      <td><span class="loja-badge loja-${v.loja}">${v.loja}</span></td>
+      <td><span class="loja-badge loja-${v.loja.replace(/\s/g,'_')}">${v.loja}</span></td>
       <td><span class="status-badge status-${v.status}">${v.status}</span></td>
     </tr>`).join('')
 }
