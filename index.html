@@ -1152,19 +1152,25 @@ async function handleExcel(e) {
   preview.innerHTML = `<p style="font-size:0.8rem;color:var(--text2);margin-bottom:0.75rem;">${rows.length} linhas encontradas. Mapeando com IA...</p>`
 
   try {
-    const resp = await fetch('/api/extrair', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ excel: rows.slice(0, 50) })
-    })
-    const mapped = await resp.json()
-    if (!resp.ok || mapped.error) {
-      preview.innerHTML = `<p style="color:var(--red)">Erro da IA: ${mapped.error || resp.status}</p>`
-      return
+    const LOTE = 30
+    const arr = []
+    for (let i = 0; i < rows.length; i += LOTE) {
+      preview.innerHTML = `<p style="font-size:0.8rem;color:var(--text2);margin-bottom:0.75rem;">${rows.length} linhas encontradas. Mapeando com IA... ${Math.min(i + LOTE, rows.length)}/${rows.length}</p>`
+      const resp = await fetch('/api/extrair', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ excel: rows.slice(i, i + LOTE) })
+      })
+      const mapped = await resp.json()
+      if (!resp.ok || mapped.error) {
+        preview.innerHTML = `<p style="color:var(--red)">Erro da IA (linhas ${i + 1}–${Math.min(i + LOTE, rows.length)}): ${mapped.error || resp.status}</p>`
+        return
+      }
+      if (Array.isArray(mapped)) arr.push(...mapped)
     }
-    const arr = Array.isArray(mapped) ? mapped : []
     if (!arr.length) { preview.innerHTML = '<p style="color:var(--red)">Não foi possível mapear os dados. Verifique se a planilha tem colunas de pedido e valor.</p>'; return }
     renderExcelPreview(arr)
+    if (arr.length < rows.length) toast(`${arr.length} de ${rows.length} linhas mapeadas — as demais não têm nº de pedido ou valor. Confira antes de importar.`, 'info')
   } catch (err) { preview.innerHTML = `<p style="color:var(--red)">Erro ao processar Excel: ${err.message}</p>` }
 }
 
